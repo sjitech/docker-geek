@@ -256,11 +256,21 @@ then go to [How to compare two container]()
     $ dockertrace opensnoop
     ```
 
-## How to show errno of syscall when trace
+## How to strace/gdb into container
+
+- use strace/gdb to debug nsenter and its spawned processes.
+
+    ```
+    sudo strace -f nsenter --target=999999999999 --mount --net --uts --ipc --pid COMMAND ARGS...
+    ```
+
+    About gdb, same way as above. Just `set follow-fork-mode child` in gdb.
+
+## How to show errno of syscall when use perf-tools
 
 - todo
 
-## How to gdb
+## How to show target socket address when use `perf trace`
 
 - todo
 
