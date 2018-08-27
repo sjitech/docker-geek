@@ -1,0 +1,80 @@
+#!/bin/bash
+set -o errexit -o pipefail
+
+function show_usage() {
+    >&2 echo "Start docker-geek and map a container's rootfs into /rootfs, and switch to its"
+    >&2 echo " net,ipc,uts namespaces."
+    >&2 echo ""
+    >&2 echo "Usage:"
+    >&2 echo "  ${0##*/} [OPTIONS] CONTAINER_ID_OR_NAME [CMD [ARGS...]]"
+    >&2 echo ""
+    >&2 echo "OPTIONS:"
+    >&2 echo "  -i, --interactive                    Keep STDIN open even if not attached"
+    >&2 echo "  -t, --tty                            Allocate a pseudo-TTY"
+    >&2 echo ""
+    >&2 echo "Note:"
+    >&2 echo "  - If no any argument specified, it will run an interactive /bin/bash (implies '-i' and '-t')."
+    >&2 echo ""
+    exit 1
+}
+
+ID=""
+
+OPT_INTERACTIVE=""; OPT_TTY=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+    -i|--interactive)
+            OPT_INTERACTIVE=$1
+            ;;
+    -t|--tty)
+            OPT_TTY=$1
+            ;;
+    --*)
+            show_usage
+            ;;
+    -*i*|-*t*)
+            [[ $1 == *i* ]] && OPT_INTERACTIVE=-i
+            [[ $1 == *t* ]] && OPT_TTY=-t
+            [[ ! $1 =~ ^-[it]+$ ]] && show_usage
+            ;;
+    -*)
+            show_usage
+            ;;
+    *)
+            ID=$1
+            shift
+            break
+            ;;
+    esac
+    shift
+done
+
+if [[ $# == 0 && ! $OPT_INTERACTIVE && ! $OPT_TTY ]]; then
+    OPT_INTERACTIVE=-i
+    OPT_TTY=-t
+fi
+
+[[ ! $ID ]] && show_usage
+
+PID=$(docker-pid-of-container $ID)
+
+ROOTFS=$(docker-rootfs-of-container $ID)
+
+# Notes:
+# - The -v /var/lib/docker:/var/lib/docker:rshared is for bind-mounting across containers later
+# - There is no --uts-container:$ID available, though --network=container:$ID will also get same host name
+# - The --pid=container:$ID will also mount /proc properly
+
+# todo option for --net --ipc --pid ...
+
+exec docker run --rm $OPT_INTERACTIVE $OPT_TTY \
+    --privileged --userns=host \
+    --pid=container:$ID --network=container:$ID --ipc=container:$ID \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v /var/lib/docker:/var/lib/docker:rshared \
+    -v /:/host-rootfs \
+    -v $ROOTFS:/rootfs \
+    --workdir="/rootfs" \
+    $DOCKER_CONTAINER_GEEK_NS_OPTS \
+    osexp2000/docker-geek "$@"

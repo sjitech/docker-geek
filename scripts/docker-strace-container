@@ -1,0 +1,30 @@
+#!/bin/bash
+set -o errexit -o pipefail
+
+function show_usage() {
+    >&2 echo "Run a program inside specified container and trace its syscalls."
+    >&2 echo ""
+    >&2 echo "Usage:"
+    >&2 echo "  ${0##*/} CONTAINER_ID_OR_NAME [NSENTER_OPTIONS] COMMAND [ARGS...]"
+    >&2 echo ""
+    >&2 echo "Note:"
+    >&2 echo "  - \$STRACE_OPTIONS can be specified as options for strace."
+    >&2 echo ""
+    exit 1
+}
+[[ $1 == --help ]] && show_usage
+
+[[ ! $1 ]] && show_usage
+ID=$1; shift
+
+# todo: drop capabilities
+# todo check $STRACE_OPTIONS
+
+PID=$(docker-pid-of-container $ID)
+
+[[ $IS_DOCKER_GEEK ]] && exec strace $STRACE_OPTIONS -f nsenter --target=$PID --all "$@"
+
+exec docker run --rm -i --cap-add=SYS_PTRACE --cap-add=SYS_ADMIN \
+    --pid=host --network=host --ipc=host --userns=host --uts=host \
+    osexp2000/docker-geek \
+        strace $STRACE_OPTIONS -f nsenter --target=$PID --all "$@"

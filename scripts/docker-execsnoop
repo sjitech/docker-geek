@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# -it option to ensure Ctl+C can be passed to inner process
+exec docker-geek -it bash -c 'mount -t debugfs debugfs /sys/kernel/debug && execsnoop "$@"' -- "$@"

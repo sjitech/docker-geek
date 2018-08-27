@@ -1,0 +1,55 @@
+#!/bin/bash
+set -o errexit -o pipefail
+
+#todo check if inside docker-geek
+
+function show_usage() {
+    >&2 echo "Unmount a dir or file previously bind-mounted to an running container."
+    >&2 echo ""
+    >&2 echo "Usage:"
+    >&2 echo "  ${0##*/} CONTAINER:TARGET_PATH"
+    >&2 echo ""
+    >&2 echo "CONTAINER:"
+    >&2 echo "  The container id or name"
+    >&2 echo ""
+    >&2 echo "TARGET_PATH:"
+    >&2 echo "  The mount point, can be a dir or file. Must start with /"
+    >&2 echo ""
+    exit 1
+}
+
+TARGET_ID=""; TARGET_PATH=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+    -*)
+            show_usage
+            ;;
+
+    *:/*)
+            TARGET_PATH=${1#*:}
+            [[ $TARGET_PATH != /* ]] && show_usage
+            TARGET_ID=${1%%:*}
+            [[ ! $TARGET_ID ]] && show_usage
+            ;;
+    *)
+            show_usage
+            ;;
+    esac
+    shift
+done
+
+TARGET_ROOTFS=$(docker-rootfs-of-container "$TARGET_ID")
+
+# Notes: 
+# - The -v /var/lib/docker:/var/lib/docker:rshared is for bind-mounting across containers later
+# - The --pid=host --network=host ...=host are just for launching container faster
+
+[[ $IS_DOCKER_GEEK ]] && exec umount "$TARGET_ROOTFS$TARGET_PATH"
+
+exec docker run --rm \
+    --privileged --userns=host \
+    --pid=host --network=host --ipc=host --uts=host \
+    -v /var/lib/docker:/var/lib/docker:rshared \
+    --entrypoint umount \
+    osexp2000/bind-mount "$TARGET_ROOTFS$TARGET_PATH"

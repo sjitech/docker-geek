@@ -1,280 +1,361 @@
 # docker-geek
 
-Docker container usually have not much tools installed,
-so without contaminating the container and host,
-how to apply any external tool to the container
-- to inspect/change files/network,
-- to trace new process's cmdline,
-- to trace file access,
-- to gdb
-- ...
-?
+A tool suite that lets you freely manipulate files and network of a container or a host, 
+with a tool container.
 
-I'v managed to do it.
+Although you can use `docker exec` or `nsenter` to run commands on behalf of a container,
+sometimes it is painful to do things in a a docker container or its host which does not have much tools installed.
 
-First of first, get the **PID** (init pid) of the container by `docker container inspect CONTAINER_ID_OR_NAME | grep Pid` or more precisely by
-```
-$ docker container inspect -f '{{.State.Pid}}' CONTAINER_ID_OR_NAME
-```
+This is exactly why `docker-geek` comes up.
 
-OK, then i'd like to introduce some
+The basic idea is starting a tool container, 
+- mount rootfs of the container or host into the tool container
+- optionally switch to its network namespace 
 
-## Advanced methods to access files/network of container **directly from host**([*1](#user-content-host))
+then you can 
+- freely use tools in the tool container to manipulate target container or its host.
+- install more into it without worry of pollute the target container.
 
-1. To Access File by File Path Mapping
+It also provide some extra features, although not necessary normally.
+- Cross-container volume mapping
+- Mount a stopped containers image without starting it
 
-    Container | <==> | Host
-    --------- | ---- | ----
-    *A_PATH_IN_CONTAINER* | <==> | /proc/_**PID**_/root/*A_PATH_IN_CONTAINER*
+## Installation
 
-2. To Access Network by [Entering Container's Network Namespace](http://man7.org/linux/man-pages/man1/nsenter.1.html)
+Just clone this repo, and add the `scripts` dir into your PATH.
 
-    Container | <==> | Host
-    --------- | ---- | ----
-    *COMMAND ARGS...* | <==> | `nsenter --target` _**PID**_ `--net` *COMMAND ARGS...*
-
-    You can also run `nsenter --target PID --net` first then input command.
-
-- For Example
-
-    ```
-    $ docker run -d nginx
-    999999999999
-    $ docker container inspect -f '{{.State.Pid}}' 999999999999
-    8888
-    $ vi /proc/8888/root/etc/hosts
-    ... same result as vi /etc/hosts in the container ...
-    $ nsenter --target 8888 --net
-    # iptable -L
-    ... container side network info ...
-    ```
-
-# Geek's Tool Container
-
-**Put all your tools in it and use it to access target container**.
-
-To eliminate contamination to target container,
-start a separate tool container which can be based on any image you want,
-such as "ubuntu" or my tool image [osexp2000/ubuntu-with-utils](https://hub.docker.com/r/osexp2000/ubuntu-with-utils/),
-and you can install any tool into the tool container (and commit it for later use).
-
-I'v defined a `dockergeek` alias to start a powerful tool container which can
-manage any other container and the host itself.
+Or if you just want to have a try without downloading this repo nor installing anything, you can run:
 
 ```
-alias dockergeek="docker run --rm -it --hostname=geek \
-                  --cap-add=SYS_PTRACE --cap-add=SYS_ADMIN --cap-add=NET_ADMIN \
-                  --pid=host --network=host --ipc=host --userns=host \
-                  -v /var/lib/docker:/var/lib/docker:ro -v /var/run/docker.sock:/var/run/docker.sock -v /usr/bin/docker:/usr/bin/docker:ro \
-                  osexp2000/ubuntu-with-utils"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/sjitech/docker-geek/master/scripts/docker-geek)"
+```
+Then it will (first time) download a docker-image `osexp2000/docker-geek` which contains all necessary stuff
+and start it as a workbench where you can further run other commands of this tool suite. 
+```
+root@GEEK:/host-rootfs#
 ```
 
-And there are also other aliases defined in [docker-geek-aliases](docker-geek-aliases.rc)
+Note:
+- You can use docker client inside tool of this suite.
+- You can call commands of this suite from each other.
 
-## How to access files of a container
+## Usage
 
-- just access /proc/_**PID**_/root/*A_PATH_IN_CONTAINER*
+### `docker-container-geek`: freely manipulate files of a container
+
+This tool starts a tool container, and 
+- map target container's rootfs into /rootfs
+- map host's rootfs into /host-rootfs
+
+```
+docker-container-geek [OPTIONS] CONTAINER_ID_OR_NAME [CMD [ARGS...]]
+```
+
+```
+$ docker-container-geek cae89cdb65cd
+root@GEEK-cae89cdb65cd:/rootfs# ls /rootfs
+bin  dev  etc  home  proc  root  sys  tmp  usr  var
+root@GEEK-cae89cdb65cd:/rootfs# ls /host-rootfs
+Users    bin  etc   lib       libau.so.2    media  opt   private  root  sbin        srv  tmp  var
+Volumes  dev  home  libau.so  libau.so.2.9  mnt    port  proc     run   sendtohost  sys  usr
+```
+
+### `docker-container-geek-ns`: freely manipulate files and network of a container
+
+Much like `docker-container-geek`, but also with net,ipc,uts namespaces switched to target container's.
+
+```
+docker-container-geek-ns [OPTIONS] CONTAINER_ID_OR_NAME [CMD [ARGS...]]
+```
+
+```
+$ docker-container-geek-ns cae89cdb65cd
+root@GEEK-cae89cdb65cd:/rootfs# ip address show
+...network info of the target container...
+```
+
+### `docker-geek`: freely manipulate files and network of the host
+
+This tool starts a tool container, and 
+- map host's rootfs into /host-rootfs
+- **switch to host's net,ipc,uts namespaces**
+
+```
+docker-geek [OPTIONS] [CMD [ARGS...]]
+```
+```
+$ docker-geek
+root@GEEK:/host-rootfs# ls /host-rootfs
+Users    bin  etc   lib       libau.so.2    media  opt   private  root  sbin        srv  tmp  var
+Volumes  dev  home  libau.so  libau.so.2.9  mnt    port  proc     run   sendtohost  sys  usr
+root@GEEK:/host-rootfs# ip address show
+...network info of the host...
+```
+
+Note: more accurately, this tool enter PID 1's net,ipc,uts namespaces, it may still be different
+with `dockerd`'s namespaces which pid is not 1.
+
+### `docker-strace-container`: run a command in strace mode in a container
+
+Run `nsenter` to attach to target container then run specified command, trace all these processes.
+
+```
+docker-strace-container CONTAINER_ID_OR_NAME [NSENTER_OPTIONS] COMMAND [ARGS...]
+```
+```
+$ docker-strace-container cae89cdb65cd ping -c 1 www.google.com
+...
+[pid 34323] execve("/bin/ping", ["ping", "-c", "1", "www.google.com"], [/* 4 vars */]) = 0
+...
+```
+
+### `docker-execsnoop`: trace command line of every new process in the host(include in containers)
+
+```
+$ docker-execsnoop [...arguments of execsnoop...]
+```
+```
+$ docker-execsnoop
+Tracing exec()s. Ctrl-C to end.
+Instrumenting sys_execve
+   PID   PPID ARGS
+ 17603  17601 cat -v trace_pipe
+ 17602  17598 gawk -v o=1 -v opt_name=0 -v name= -v opt_duration=0 [...]
+```
+
+Then you use grep to filter out things of target container.
+
+### `docker-opensnoop`: trace file activities in the host(include in containers)
+
+```
+$ docker-opensnoop [...arguments of opensnoop...]
+```
+```
+$ docker-opensnoop
+Tracing open()s. Ctrl-C to end.
+COMM             PID      FD FILE
+opensnoop        17605   0x3
+opensnoop        17610   0x3 /etc/ld.so.cache
+opensnoop        17610   0x3 /lib/x86_64-linux-gnu/libc.so.6
+opensnoop        17609   0x3 /etc/ld.so.cache
+```
+
+Then you use grep to filter out things of target container.
+
+todo: `docker-geek sh `
+
+### `docker-bind-mount` bind-mount files into a container or among container and host
+
+sometimes you forgot to configure volume mount for a container and just started the container, 
+for some reason, you might want to mount some files into it.
+
+```
+docker-bind-mount [OPTIONS] [CONTAINER:]SOURCE_PATH [CONTAINER:]TARGET_PATH
+```
+you want to map second containers cae89cdb65cd's /dir1 to first's /xxx
+```
+$ docker-bind-mount CONTAINER_ID1:/dir1 CONTAINER_ID2:/xxx
+```
+
+You can also mount file or dir from a container to a host or reverse
+```
+docker-bind-mount CONTAINER_ID_OR_NAME:/CONTAINER_DIR /HOST_DIR
+```
+```
+docker-bind-mount /HOST_DIR CONTAINER_ID_OR_NAME:/CONTAINER_DIR
+```
+
+### `docker-mount-overlay-image-ro`: mount a overlay storage of a image (or container) as readonly
+
+```
+root@GEEK:/host-rootfs# docker-mount-overlay-image-ro cae89cdb65cd /xxx
+root@GEEK:/host-rootfs# ls /xxx
+bin  dev  etc  home  proc  root  sys  tmp  usr  var
+```
+### `docker-host`: enter the `dockerd`
+
+enter dockerd's all namespaces.
+```
+$ docker-host
+linuxkit-025000000001:/# ls
+Users	 bin  etc   lib       libau.so.2    media  opt	 private  root	sbin	    srv  tmp  var
+Volumes  dev  home  libau.so  libau.so.2.9  mnt    port  proc	  run	sendtohost  sys  usr
+```
+
+### `docker-host1`: enter the host
+
+enter pid 1's all namespaces.
+```
+$ docker-host1
+linuxkit-025000000001:/# ls
+EFI         boot        dev         home        lib         mnt         proc        run         srv         tmp         var
+bin         containers  etc         init        media       opt         root        sbin        sys         usr
+```
+
+### `docker-layers-of`: show image layers of a container or image easily
+
+```
+$ docker-layers-of cae89cdb65cd
+/var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d/diff
+/var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d-init/diff
+/var/lib/docker/overlay2/80c7824a3012f56122d75283c90b85f2eb733d62889e5bbe956035d77720c554/diff
+```
+or use it in pipe:
+```
+$ docker ps | docker-layers-of
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
+17c5d7eafa20        nginx               ...
+  layer: /var/lib/docker/overlay2/c6212d8523d5f5250b80c7c6daa29c3d57327b2e9adec345555d2d2fb404fdf1/diff
+  layer: /var/lib/docker/overlay2/c6212d8523d5f5250b80c7c6daa29c3d57327b2e9adec345555d2d2fb404fdf1-init/diff
+  layer: /var/lib/docker/overlay2/a68ea16a5b16b4c3b8bd659cd53ebe1095ecda2e6fee5ccb5521a156da486cdb/diff
+  layer: /var/lib/docker/overlay2/43b4f1b48efb892b151bd3a901c981fc1f03f7e0c3a7e960998d0db0e3a70468/diff
+  layer: /var/lib/docker/overlay2/8f74ae7349f0cc8b54cd5201b93bcf89432986bae680b879a12ba0d43a937aa5/diff
+cae89cdb65cd        busybox             ...
+  layer: /var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d/diff
+  layer: /var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d-init/diff
+  layer: /var/lib/docker/overlay2/80c7824a3012f56122d75283c90b85f2eb733d62889e5bbe956035d77720c554/diff
+
+$ docker images | docker-layers-of
+...
+```
+The result can be further piped to other similar commands of this tool suite. 
+
+### `docker-rootfs-of-container`: show path of rootfs of a container
+
+```
+$ docker-rootfs-of-container cae89cdb65cd
+/var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d/merged
+```
+or use it in pipe:
+```
+$ docker ps | docker-rootfs-of-container
+CONTAINER ID        IMAGE
+17c5d7eafa20        ...
+  rootfs: /var/lib/docker/overlay2/c6212d8523d5f5250b80c7c6daa29c3d57327b2e9adec345555d2d2fb404fdf1/merged
+cae89cdb65cd        ...
+  rootfs: /var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d/merged
+```
+The result can be further piped to other similar commands of this tool suite. 
+
+### `docker-pid-of-container`: show init process id of a container
+
+```
+$ docker-pid-of-container cae89cdb65cd
+2788
+```
+or use it in pipe:
+```
+$ docker ps | docker-pid-of-container
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
+17c5d7eafa20        ...
+  pid: 2868
+cae89cdb65cd        ...
+  pid: 2788 
+```
+The result can be further piped to other similar commands of this tool suite. 
+
+### `docker-cap-of-container`: show process capabilities of a container
+
+```
+$ docker-cap-of-container cae89cdb65cd
+AUDIT_WRITE
+CHOWN
+DAC_OVERRIDE
+FOWNER
+FSETID
+KILL
+MKNOD
+NET_BIND_SERVICE
+NET_RAW
+SETFCAP
+SETGID
+SETPCAP
+SETUID
+SYS_CHROOT
+$ docker-cap-of-container cae89cdb65cd -f
+00000000a80425fb=[AUDIT_WRITE CHOWN DAC_OVERRIDE FOWNER FSETID KILL MKNOD NET_BIND_SERVICE NET_RAW SETFCAP SETGID SETPCAP SETUID SYS_CHROOT]
+$ docker-cap-of-container cae89cdb65cd -n
+00000000a80425fb
+```
+or use it in pipe:
+```
+$ docker ps | docker-cap-of-container
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
+17c5d7eafa20        ...
+  cap: AUDIT_WRITE CHOWN DAC_OVERRIDE FOWNER FSETID KILL MKNOD NET_BIND_SERVICE NET_RAW SETFCAP SETGID SETPCAP SETUID SYS_CHROOT
+cae89cdb65cd        ...
+  cap: AUDIT_WRITE CHOWN DAC_OVERRIDE FOWNER FSETID KILL MKNOD NET_BIND_SERVICE NET_RAW SETFCAP SETGID SETPCAP SETUID SYS_CHROOT
+```
+The result can be further piped to other similar commands of this tool suite. 
+
+## Other Tips
+
+### How to access files of a container directly from its host
+
+E.g., You have a running container ID 17c5d7eafa20, you want to vi its file /some_dir/some_file.
+(*for a stopped container, I'll describe it later*)
+
+- Method1: via **MOUNTED_CONTAINER_DIR** prefix
 
     ```
-    $ dockergeek
-    root@geek:/# vi /proc/8888/root/A_PATH_IN_CONTAINER
+    $ docker container inspect -f '{{.GraphDriver.Data.MergedDir}}' 17c5d7eafa20
+    /var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d/merged
+    $ vi /var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d/merged/some_dir/some_file
     ```
 
-    This is useful when there are no tools such as vi installed in target container.
-
-## How to access files of the docker host
-
-- just access /proc/1/root/*A_PATH_IN_HOST*
+- Method2: via `/proc/CONTAINER_PID/root/` prefix
 
     ```
-    $ dockergeek
-    root@geek:/# vi /proc/1/root/A_PATH_IN_HOST
+    $ docker inspect -f '{{.State.Pid}}' cae89cdb65cd
+    2788
+    $ vi /proc/2788/root/some_dir/some_file
     ```
 
-    This is useful when there are no tools such as vi installed in the host.
+Note: /proc/CONTAINER_PID/root/ is not a cwd-able dir thus it will cause some tool complains about "(unreachable)"
 
-## How to access network of a container
+### How to access files of a docker volume
 
-- just use `nsenter --target PID --net`
+just access /var/lib/docker/volumes/_**VOLUME_ID**_/_data
 
-    ```
-    $ dockergeek
-    root@geek:/# nsenter --target=8888 --net
-    # iptables -L
-    ... network info of the container
-    root@geek:/# nsenter --target=8888 --net iptables -L
-    ... network info of the container
-    ```
+```
+$ docker container inspect -f '{{.Mounts}}' 999999999999
+[{volume 666666666666666666666666 /var/lib/docker/volumes/666666666666666666666666/_data /var/lib/mysql local  true }]
+```
 
-    This is useful when there are no tools such as iptables installed in target container.
+### How to access files in a stopped container without `docker cp` out
 
-## How to access network of the docker host
+just access /var/lib/docker/*STORAGE_DRV_NAME*/*CONTAINER_ID*/diff
 
-- just use `dockergeek`
+```
+$ docker container inspect -f '{{.GraphDriver.Data.UpperDir}}' 999999999999
+  /var/lib/docker/overlay2/999999999999999999999999/diff
+```
 
-    ```
-    $ dockergeek
-    root@geek:/# iptables -L
-    ... network info of the container
-    ```
+### How to compare files in two containers
 
-    This is useful when there are no tools such as iptables installed in the hosts.
+With the path prefix `/proc/CONTAINER_PID/root/` described above,
+you can easily use diff command to compare.
 
-## How to access files of a docker volume
+```
+root@GEEK diff -r /proc/8888/root/PATH_IN_CONTAINER /proc/7777/root/PATH_IN_CONTAINER
+```
 
-- just access /var/lib/docker/volumes/_**VOLUME_ID**_/_data
+### How to compare files in two docker images
 
-    ```
-    $ docker container inspect -f '{{.Mounts}}' 999999999999
-    [{volume 666666666666666666666666 /var/lib/docker/volumes/666666666666666666666666/_data /var/lib/mysql local  true }]
-    $ dockergeek
-    root@geek:/# find /var/lib/docker/volumes/666666666666666666666666/_data -ls
-    ... file list ...
-    ```
-
-    This helps demystify docker volume and backup.
-
-## How to access files in a stopped container
-
-- just access /var/lib/docker/*STORAGE_DRV_NAME*/*CONTAINER_ID*/diff
-
-    ```
-    $ docker container inspect -f '{{.GraphDriver.Data.UpperDir}}' 999999999999
-      /var/lib/docker/overlay2/999999999999999999999999/diff
-    $ dockergeek
-    root@geek:/# find /var/lib/docker/overlay2/999999999999999999999999/diff
-    ... file list ...
-    ```
-
-    This helps demystify docker storage.
-
-- Then go to [How to find files in a docker image]
-
-## How to access files in a docker image
-
-- The best way is to start the image but let it wait there,
-then you `find` /proc/_**PID**_/root/*A_PATH_IN_CONTAINER*
-
-    ```
-    $ docker run -d nginx sleep 1234567890
-    8888
-    $ dockergeek
-    root@geek:/# find /proc/8888/root/A_PATH_IN_CONTAINER
-    ... file list ...
-    ```
-
-- Otherwise, it's also possible get files layer-by-layer
-
-    - Inspect the image to get all layer dirs
-
-    ```
-    $ docker image inspect -f '{{.GraphDriver.Data.LowerDir}}' IMAGE_ID_OR_NAME
-    /var/lib/docker/overlay2/IMAGE_ID1/diff:/var/lib/docker/overlay2/IMAGE_ID2/diff:...
-    $ dockergeek
-    root@geek:/# find /var/lib/docker/overlay2/IMAGE_ID1/diff
-    ... files changed by this layer ...
-    ```
-
-## How to enter the docker host?
-
-- Use [dockerhost](docker-geek-aliases.rc)
-
-    ```
-    $ dockerhost
-    root@moby:/#
-    ```
-
-    Docker for Mac or Windows does not provide docker-machine ssh, so this is useful.
-
-## How to see changed file list of a container
-
-- Use `docker diff` see file changes, even after container stopped
-
-    ```
-    $ docker diff 999999999999
-    C /etc
-    A /run/nginx.pid
-    ...
-    ```
-
-- or just access /var/lib/docker/*STORAGE_DRV_NAME*/*CONTAINER_ID*/diff
-
-    ```
-    $ docker container inspect -f '{{.GraphDriver.Data.UpperDir}}' 999999999999
-      /var/lib/docker/overlay2/999999999999999999999999/diff
-    $ dockergeek
-    root@geek:/# find /var/lib/docker/overlay2/999999999999999999999999/diff
-    ... file list ...
-    ```
-
-## How to compare two container
-
-- With the path prefix /proc/_**PID**_/root described above,
-    you can easily use diff command to compare.
-
-    ```
-    $ diff -r /proc/8888/root/A_PATH_IN_CONTAINER /proc/7777/root/A_PATH_IN_CONTAINER
-    ```
-
-## How to compare two docker images
-
-- The simplest way to finish this is run the images but let it do nothing,
+The simplest way to finish this is run the images but let it do nothing,
 then go to [How to compare two container]()
 
-    ```
-    $ docker run -d DOCKER_IMAGE1 sleep 1234567890
-    8888
-    $ docker run -d DOCKER_IMAGE2 sleep 1234567890
-    7777
-    ```
+```
+$ docker run -d DOCKER_IMAGE1 sleep 1234567890
+8888
+$ docker run -d DOCKER_IMAGE2 sleep 1234567890
+7777
+```
 
-## How to run docker inside docker
+Another way is use `docker-image-geek` to mount image into dir and compare.
 
-- just use `dockergeek`
+## todo
 
-    ```
-    $ dockergeek
-    root@geek:/# docker ps
-    ...
-    ```
-
-## How to trace command line of every new process in a container
-
-- just use [dockertrace](docker-geek-aliases.rc) which in turn use [kernel ftrace](https://github.com/brendangregg/perf-tools)
-
-    ```
-    $ dockertrace execsnoop
-    ```
-
-- Another way is use PROC_CONNECTOR //todo
-
-## How to trace file activities in a container
-
-- just use [dockertrace](docker-geek-aliases.rc) which in turn use [kernel ftrace](https://github.com/brendangregg/perf-tools)
-
-    ```
-    $ dockertrace opensnoop
-    ```
-
-## How to strace/gdb into container
-
-- use strace/gdb to debug nsenter and its spawned processes.
-
-    ```
-    sudo strace -f nsenter --target=999999999999 --mount --net --uts --ipc --pid COMMAND ARGS...
-    ```
-
-    About gdb, same way as above. Just `set follow-fork-mode child` in gdb.
-
-## How to show errno of syscall when use perf-tools
-
-- todo
-
-## How to show target socket address when use `perf trace`
-
-- todo
-
-## Notes
-
-<a name="host"></a>
-\*1. Not just the docker host can do this, but also does the docker container which can see host's `/proc`.
+- How to show errno of syscall when use perf-tools
+- How to show target socket address when use `perf trace`
+- How to install utilities such as sysdig which depends on host's kernel version?

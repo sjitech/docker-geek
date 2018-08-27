@@ -1,0 +1,46 @@
+#!/bin/bash
+set -o errexit -o pipefail
+
+function show_usage() {
+    >&2 echo "Extract files from a docker image and tar+gzip and output to stdout."
+    >&2 echo ""
+    >&2 echo "Usage:"
+    >&2 echo "  ${0##*/} IMAGE_ID_OR_NAME:SOURCE_PATH"
+    >&2 echo ""
+    >&2 echo "Example:"
+    >&2 echo "  - ${0##*/} osexp2000/util-linux-static:/usr/bin/lsns |tar -xvz"
+    >&2 echo "    This will extract a /usr/bin/lsns to \$PWD/usr/bin/lsns"
+    >&2 echo ""
+    exit 1
+}
+
+[[ $# != 1 ]] && show_usage
+
+SOURCE_PATH=$1; shift
+
+[[ $SOURCE_PATH != *:/* ]] && show_usage
+
+ID=${SOURCE_PATH%%:*}
+SOURCE_PATH=${SOURCE_PATH#*:}
+
+[[ ! $ID || ! $SOURCE_PATH ]] && show_usage
+
+LAYERS=($(docker-layers-of $ID))
+LAYERS=${LAYERS[*]}
+LAYERS=${LAYERS// /:}
+
+[[ ! $ID =~ ^[0-9a-f]{12}$ && ! $ID =~ ^[0-9a-f]{64}$ ]] && ID=$(docker image inspect -f '{{.ID}}' "$ID") && ID=${ID#sha256:}
+
+# Notes:
+# - The --hostname=GEEK is for showing hostname as an indicator of the special container.
+# - The --add-host GEEK:127.0.0.1 is for avoiding sudo from warning about host can not be resolved.
+# - The -v /var/lib/docker:/var/lib/docker:rshared is for bind-mounting across containers later
+
+exec docker run --rm \
+    --privileged --userns=host \
+    --pid=host --network=host --ipc=host \
+    --hostname=GEEK-${ID:0:12} --add-host GEEK-${ID:0:12}:127.0.0.1 \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v /var/lib/docker:/var/lib/docker:rshared \
+    osexp2000/docker-geek \
+        mount-overlay-ro "$LAYERS" /rootfs tar cz "${SOURCE_PATH#/}"

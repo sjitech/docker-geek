@@ -1,0 +1,56 @@
+#!/bin/bash
+set -o errexit -o pipefail
+
+c_or_i=""; if [[ $0 == *-container ]]; then c_or_i=container; elif [[ $0 == *-image ]]; then c_or_i=image; fi
+C_OR_I=""; if [[ $0 == *-container ]]; then C_OR_I=CONTAINER; elif [[ $0 == *-image ]]; then C_OR_I=IMAGE; fi
+
+function show_usage() {
+    >&2 echo "Show storage layers of a ${c_or_i:-container or image}."
+    >&2 echo ""
+    >&2 echo "Usage:"
+    >&2 echo "  ${0##*/} [${C_OR_I:-CONTAINER_ID_OR_NAME|IMAGE}_ID_OR_NAME]"
+    >&2 echo ""
+    >&2 echo "Note:"
+    >&2 echo "  - If ${C_OR_I:-*}_ID_OR_NAME is omitted, it reads each line from input, echo it,"
+    >&2 echo "    grep out an 12 or 64 chars lowercase hex id, if found then process the id"
+    >&2 echo "    and show each line of result with '  layer: ' prepended."
+    >&2 echo ""
+    >&2 echo "Example:"
+    >&2 echo "  - ${0##*/} 17d09873c8a5"
+    >&2 echo "  - docker ps | ${0##*/}"
+    >&2 echo ""
+    exit 1
+}
+
+ID=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+    -*)
+            show_usage
+            ;;
+    *)
+            ID=$1
+            ;;
+    esac
+    shift
+done
+
+if [[ $ID ]]; then
+    docker $c_or_i inspect "$ID" --format '{{.GraphDriver.Data.UpperDir}}:{{.GraphDriver.Data.LowerDir}}' | tr ':' '\n' | grep --color=no /
+else
+    while IFS='' read -r line; do
+        echo "$line"
+        [[ $line =~ ^"  "[a-z]+:$ ]] && continue
+        ID=""
+        read -a a <<<"$line"
+        for x in "${a[@]}"; do
+            [[ $x =~ ^[0-9a-f]{12}$ || $x =~ ^[0-9a-f]{64}$ ]] && ID=$x && break
+        done
+        if [[ $ID ]] && LAYERS=$(exec 2>/dev/null && docker $c_or_i inspect "$ID" --format '{{.GraphDriver.Data.UpperDir}}:{{.GraphDriver.Data.LowerDir}}' | tr ':' '\n' | grep --color=no /); then
+            for layer in $LAYERS; do
+                echo "  layer: $layer"
+            done
+        fi
+    done
+fi

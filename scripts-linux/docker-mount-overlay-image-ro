@@ -1,0 +1,27 @@
+#!/bin/bash
+set -o errexit -o pipefail
+
+function show_usage() {
+    >&2 echo "Mount a image's rootfs (readonly)."
+    >&2 echo ""
+    >&2 echo "Usage:"
+    >&2 echo "  ${0##*/} IMAGE_ID_OR_NAME MOUNT_POINT"
+    >&2 echo ""
+    >&2 echo "MOUNT_POINT:"
+    >&2 echo "  The dir where mount to"
+    >&2 echo ""
+    exit 1
+}
+
+[[ $# != 2 ]] && show_usage
+
+ID=$1; shift
+MOUNT_POINT=$1; shift
+
+[[ ! $ID || ! $MOUNT_POINT ]] && show_usage
+
+LAYERS=($(docker-layers-of $ID))
+LAYERS=${LAYERS[*]}
+LAYERS=${LAYERS// /:}
+
+exec mount-overlay-ro "$LAYERS" "$MOUNT_POINT" "$@"
