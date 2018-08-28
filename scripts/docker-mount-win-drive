@@ -1,0 +1,26 @@
+#!/bin/bash
+set -o errexit -o pipefail
+
+function show_usage() {
+    >&2 echo "Mount windows drive(such as C) into host at /var/lib/docker/C"
+    >&2 echo ""
+    >&2 echo "Usage:"
+    >&2 echo "  ${0##*/} DRIVE_LETTER USER DOMAIN"
+    >&2 echo ""
+    >&2 echo "Example:"
+    >&2 echo "  - ${0##*/} C user domain"
+    >&2 echo ""
+    exit 1
+}
+
+[[ ! $1 || $1 == --help ]] && show_usage
+[[ $1 =~ ^[A-Z]$ ]] || show_usage
+[[ $2 ]] || show_usage
+
+docker-geek -it bash -c '
+    mnt=/var/lib/docker/"$1" && \
+    ([[ -e "$mnt" ]] || mkdir "$mnt") && \
+    ip=$(dig +short host.docker.internal) && \
+    mount -t cifs //$ip/"$1" "$mnt" -o user="$2",dom="$3" && \
+    echo mounted at "$mnt"
+' -- "$@"

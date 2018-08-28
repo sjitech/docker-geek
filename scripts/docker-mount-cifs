@@ -1,0 +1,27 @@
+#!/bin/bash
+set -o errexit -o pipefail
+
+function show_usage() {
+    >&2 echo "Mount windows shared folder or SAMBA into host under /var/lib/docker/cifs/"
+    >&2 echo ""
+    >&2 echo "Usage:"
+    >&2 echo "  ${0##*/} SHARE_UNC USER DOMAIN"
+    >&2 echo ""
+    >&2 echo "Note: SHARE_UNC must be //IP/SHARE_NAME or //IP:PORT/SHARE_NAME"
+    >&2 echo ""
+    >&2 echo "Example:"
+    >&2 echo "  - ${0##*/} //192.168.1.2/share user domain"
+    >&2 echo ""
+    exit 1
+}
+
+[[ ! $1 || $1 == --help ]] && show_usage
+[[ $1 =~ //.*/.*$ ]] || show_usage
+[[ $2 ]] || show_usage
+
+docker-geek -it bash -c '
+    mnt=/var/lib/docker/cifs/"${1#//}" && \
+    ([[ -e "$mnt" ]] || mkdir -p "$mnt") && \
+    mount -t cifs "$1" "$mnt" -o user="$2",dom="$3" && \
+    echo mounted at "$mnt"
+' -- "$@"

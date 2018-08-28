@@ -17,7 +17,6 @@ COPY --from=osexp2000/util-linux-static /usr/share/bash-completion/completions/u
 COPY --from=osexp2000/util-linux-static /usr/share/man/man8/umount.8 ./distusr/share/man/man8/
 
 COPY ./scripts /dist/usr/local/bin/
-COPY ./scripts-linux /dist/usr/local/bin/
 
 # copy nsenter-host related scripts
 COPY --from=osexp2000/nsenter-host /usr/local/bin/nsenter-* /dist/usr/local/bin/
