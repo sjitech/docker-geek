@@ -20,26 +20,110 @@ It also provide some extra features, although not necessary normally.
 - Cross-container volume mapping
 - Mount a stopped containers image without starting it
 
-## Installation
+## Installation && Quick Start
 
-Just clone this repo, and add the `scripts` dir into your PATH.
+Let's start the workbench so from there you can further run other commands of this tool suite.
 
-Or if you just want to have a try without downloading this repo nor installing anything, you can run:
+**You might just want to have a try without downloading this repo nor installing anything to your host**, so just run
 
+*For Bash:*
 ```
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/sjitech/docker-geek/master/scripts/docker-geek)"
+docker run --rm -i -t \
+    --privileged --userns=host \
+    --pid=host --network=host --ipc=host \
+    --hostname=GEEK --add-host GEEK:127.0.0.1 \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v /var/lib/docker:/var/lib/docker:rshared \
+    -v /:/host-rootfs \
+    --workdir /host-rootfs \
+    osexp2000/docker-geek
 ```
-Then it will (first time) download a docker-image `osexp2000/docker-geek` which contains all necessary stuff
-and start it as a workbench where you can further run other commands of this tool suite. 
+*For Windows Cmd:*
+```
+docker run --rm -i -t ^
+    --privileged --userns=host ^
+    --pid=host --network=host --ipc=host ^
+    --hostname=GEEK --add-host GEEK:127.0.0.1 ^
+    -v /var/run/docker.sock:/var/run/docker.sock ^
+    -v /var/lib/docker:/var/lib/docker:rshared ^
+    -v /:/host-rootfs ^
+    --workdir /host-rootfs ^
+    osexp2000/docker-geek
+```
+Then you got a workbench with workding dir pointing to rootfs of the host.
 ```
 root@GEEK:/host-rootfs#
 ```
+**You can use docker commands and other utilities of this tool suite there.**
+
+For Bash users who want to call these commands directly from host, just can clone this repo, 
+and add the `scripts` dir into your PATH into your Bash settings.
+
+
+The docker image [`osexp2000/docker-geek`](Dockerfile) consists of all necessary stuff. 
+most utilities are baked into `/usr/local/bin` of the image.
+```
+docker-geek
+
+docker-container-geek
+docker-container-geek-ns
+
+docker-image-geek
+
+docker-bind-mount
+
+docker-execsnoop
+docker-opensnoop
+docker-strace-container
+
+docker-host
+docker-host1
+
+docker-mount-overlay-image-ro
+docker-extract-from-image
+
+docker-mount-cifs
+docker-mount-win-drive
+
+docker-umount
+
+docker-layers-of
+docker-layers-of-container
+docker-layers-of-image
+docker-pid-of-container
+docker-cap-of-container
+docker-rootfs-of-container
+```
 
 Note:
-- You can use docker client inside tool of this suite.
+- You can use docker client in this workbench and most tools of this suite.
 - You can call commands of this suite from each other.
+- You can save changes made to the tool container locally with `docker commit THE_RUNNING_DOCKER_GEEK_CONTAINER_ID osexp2000/docker-image`
 
 ## Usage
+
+### `docker-geek`: freely manipulate files and network of the host, also as a entry to this workbench 
+
+This tool starts a tool container, and 
+- map host's rootfs into /host-rootfs
+- **switch to host's net,ipc,uts namespaces**
+
+You can further run other commands in this workbench.
+
+```
+docker-geek [OPTIONS] [CMD [ARGS...]]
+```
+```
+$ docker-geek
+root@GEEK:/host-rootfs# ls /host-rootfs
+Users    bin  etc   lib       libau.so.2    media  opt   private  root  sbin        srv  tmp  var
+Volumes  dev  home  libau.so  libau.so.2.9  mnt    port  proc     run   sendtohost  sys  usr
+root@GEEK:/host-rootfs# ip address show
+...network info of the host...
+```
+
+Note: more accurately, this tool enter PID 1's net,ipc,uts namespaces, it may still be different
+with `dockerd`'s namespaces which pid is not 1.
 
 ### `docker-container-geek`: freely manipulate files of a container
 
@@ -73,27 +157,6 @@ $ docker-container-geek-ns cae89cdb65cd
 root@GEEK-cae89cdb65cd:/rootfs# ip address show
 ...network info of the target container...
 ```
-
-### `docker-geek`: freely manipulate files and network of the host
-
-This tool starts a tool container, and 
-- map host's rootfs into /host-rootfs
-- **switch to host's net,ipc,uts namespaces**
-
-```
-docker-geek [OPTIONS] [CMD [ARGS...]]
-```
-```
-$ docker-geek
-root@GEEK:/host-rootfs# ls /host-rootfs
-Users    bin  etc   lib       libau.so.2    media  opt   private  root  sbin        srv  tmp  var
-Volumes  dev  home  libau.so  libau.so.2.9  mnt    port  proc     run   sendtohost  sys  usr
-root@GEEK:/host-rootfs# ip address show
-...network info of the host...
-```
-
-Note: more accurately, this tool enter PID 1's net,ipc,uts namespaces, it may still be different
-with `dockerd`'s namespaces which pid is not 1.
 
 ### `docker-strace-container`: run a command in strace mode in a container
 
