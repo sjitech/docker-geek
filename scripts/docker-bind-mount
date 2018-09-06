@@ -2,7 +2,7 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-    >&2 echo "Bind-mount a dir or file, especially from/to a running container."
+    >&2 echo "Bind-mount a dir or file, among containers and host"
     >&2 echo ""
     >&2 echo "Usage:"
     >&2 echo "  ${0##*/} [OPTIONS] [CONTAINER:]SOURCE_PATH [CONTAINER:]TARGET_PATH"
@@ -75,22 +75,22 @@ TARGET_ROOTFS=""; [[ $TARGET_ID ]] && TARGET_ROOTFS=$(docker-rootfs-of-container
 [[ ! $SOURCE_ROOTFS && $SOURCE_PATH != /var/lib/docker/* ]] && SOURCE_ROOTFS=/host-rootfs
 [[ ! $TARGET_ROOTFS && $TARGET_PATH != /var/lib/docker/* ]] && TARGET_ROOTFS=/host-rootfs
 
-# Notes: 
+# Notes:
 # - The -v /var/lib/docker:/var/lib/docker:rshared is for bind-mounting across containers later
-# - The --pid=host --network=host ...=host are just for launching container faster
-# - The -v "$SOURCE_ROOTFS$SOURCE_PATH":/x:ro is for readonly mount otherwise not works
+# - The --network=host --ipc=host --uts=host are optional, just for launching container faster
+# - The -v "$SOURCE_ROOTFS$SOURCE_PATH":/x:ro is for readonly mount
 
-COM_CMD="exec docker run --rm \
+COM_CMD=(exec docker run --rm \
         --privileged --userns=host \
         --pid=host --network=host --ipc=host --uts=host \
         -v /var/lib/docker:/var/lib/docker:rshared \
-        -v /:/host-rootfs"
+        -v /:/host-rootfs)
 
 if [[ $OPT_READONLY ]]; then
-    $COM_CMD \
+    "${COM_CMD[@]}" \
         -v "$SOURCE_ROOTFS$SOURCE_PATH":/readonly:ro \
         osexp2000/bind-mount /readonly "$TARGET_ROOTFS$TARGET_PATH"
 else
-    $COM_CMD \
+    "${COM_CMD[@]}" \
         osexp2000/bind-mount "$SOURCE_ROOTFS$SOURCE_PATH" "$TARGET_ROOTFS$TARGET_PATH"
 fi

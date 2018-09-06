@@ -4,17 +4,17 @@ A tool suite that lets you freely manipulate files and network of a container or
 with a tool container.
 
 Although you can use `docker exec` or `nsenter` to run commands on behalf of a container,
-sometimes it is painful to do things in a a docker container or its host which does not have much tools installed.
+sometimes it is painful to do things in a docker container or its host which does not have much tools installed.
 
 This is exactly why `docker-geek` comes up.
 
 The basic idea is starting a tool container, 
 - mount rootfs of the container or host into the tool container
-- optionally switch to its network namespace 
+- switch to net, ipc, uts namespaces of host or target container optionally
 
 then you can 
 - freely use tools in the tool container to manipulate target container or its host.
-- install more into it without worry of pollute the target container.
+- install more into it without worry of polluting the target container or host.
 
 It also provide some extra features, although not necessary normally.
 - Cross-container volume mapping
@@ -28,7 +28,7 @@ Let's start the workbench so from there you can further run other commands of th
 
 *For Bash:*
 ```
-docker run --rm -i -t \
+docker run --rm -it \
     --privileged --userns=host \
     --pid=host --network=host --ipc=host \
     --hostname=GEEK --add-host GEEK:127.0.0.1 \
@@ -40,7 +40,7 @@ docker run --rm -i -t \
 ```
 *For Windows Cmd:*
 ```
-docker run --rm -i -t ^
+docker run --rm -it ^
     --privileged --userns=host ^
     --pid=host --network=host --ipc=host ^
     --hostname=GEEK --add-host GEEK:127.0.0.1 ^
@@ -64,32 +64,25 @@ The docker image [`osexp2000/docker-geek`](Dockerfile) consists of all necessary
 most utilities are baked into `/usr/local/bin` of the image.
 ```
 docker-geek
-
 docker-container-geek
 docker-container-geek-ns
-
 docker-image-geek
 
+docker-mount-image
+docker-mount-cifs
+docker-mount-win-drive
 docker-bind-mount
 
-docker-execsnoop
-docker-opensnoop
-docker-strace-container
+docker-umount
 
 docker-host
 docker-host1
 
-docker-mount-overlay-image-ro
-docker-extract-from-image
-
-docker-mount-cifs
-docker-mount-win-drive
-
-docker-umount
+docker-execsnoop
+docker-opensnoop
+docker-strace-cmd-in-container
 
 docker-layers-of
-docker-layers-of-container
-docker-layers-of-image
 docker-pid-of-container
 docker-cap-of-container
 docker-rootfs-of-container
@@ -105,8 +98,8 @@ Note:
 ### `docker-geek`: freely manipulate files and network of the host, also as a entry to this workbench 
 
 This tool starts a tool container, and 
-- map host's rootfs into /host-rootfs
-- **switch to host's net,ipc,uts namespaces**
+- map host's rootfs into `/host-rootfs`
+- switch to net,ipc,uts namespaces of **host**
 
 You can further run other commands in this workbench.
 
@@ -128,8 +121,9 @@ with `dockerd`'s namespaces which pid is not 1.
 ### `docker-container-geek`: freely manipulate files of a container
 
 This tool starts a tool container, and 
-- map target container's rootfs into /rootfs
-- map host's rootfs into /host-rootfs
+- map target container's rootfs into `/rootfs`
+- map host's rootfs into `/host-rootfs`
+- switch to net,ipc,uts namespaces of **host**
 
 ```
 docker-container-geek [OPTIONS] CONTAINER_ID_OR_NAME [CMD [ARGS...]]
@@ -146,7 +140,12 @@ Volumes  dev  home  libau.so  libau.so.2.9  mnt    port  proc     run   sendtoho
 
 ### `docker-container-geek-ns`: freely manipulate files and network of a container
 
-Much like `docker-container-geek`, but also with net,ipc,uts namespaces switched to target container's.
+Much like `docker-container-geek`, except that it switch to namespaces of target container.
+
+This tool starts a tool container, and 
+- map target container's rootfs into `/rootfs`
+- map host's rootfs into `/host-rootfs`
+- switch to pid,net,ipc,uts namespaces of **target container**
 
 ```
 docker-container-geek-ns [OPTIONS] CONTAINER_ID_OR_NAME [CMD [ARGS...]]
@@ -158,15 +157,40 @@ root@GEEK-cae89cdb65cd:/rootfs# ip address show
 ...network info of the target container...
 ```
 
-### `docker-strace-container`: run a command in strace mode in a container
+### `docker-image-geek`: view a docker image or container without run it
+
+This tool starts a tool container, and 
+- mount docker image or container into `/rootfs` as **readonly** (*currently only overlay type of storage, not yet aufs or others*)
+- map host's rootfs into `/host-rootfs`
+- switch to net,ipc,uts namespaces of **host**
+
+```
+docker-image-geek [OPTIONS] IMAGE_ID_OR_NAME [CMD [ARGS...]]
+```
+NOTE: you can specify a container as image. 
+
+```
+$ docker-image-geek nginx
+root@GEEK-cd5239a0906a:/rootfs# 
+root@GEEK-cd5239a0906a:/rootfs# ls /rootfs
+bin dev ...
+```
+
+you can further run `tar -cz PATH` to tgz files from the image to stdout then `tar -xz` to extract to local.
+```
+$ docker-image-geek nginx tar -cz bin | tar -xz -C /tmp
+```   
+this will copy bin dir from the nginx image to /tmp/ 
+
+### `docker-strace-cmd-in-container`: run a command in strace mode in a container
 
 Run `nsenter` to attach to target container then run specified command, trace all these processes.
 
 ```
-docker-strace-container CONTAINER_ID_OR_NAME [NSENTER_OPTIONS] COMMAND [ARGS...]
+docker-strace-cmd-in-container CONTAINER_ID_OR_NAME [NSENTER_OPTIONS] COMMAND [ARGS...]
 ```
 ```
-$ docker-strace-container cae89cdb65cd ping -c 1 www.google.com
+$ docker-strace-cmd-in-container cae89cdb65cd ping -c 1 www.google.com
 ...
 [pid 34323] execve("/bin/ping", ["ping", "-c", "1", "www.google.com"], [/* 4 vars */]) = 0
 ...
@@ -205,8 +229,6 @@ opensnoop        17609   0x3 /etc/ld.so.cache
 
 Then you use grep to filter out things of target container.
 
-todo: `docker-geek sh `
-
 ### `docker-bind-mount` bind-mount files into a container or among container and host
 
 sometimes you forgot to configure volume mount for a container and just started the container, 
@@ -228,10 +250,14 @@ docker-bind-mount CONTAINER_ID_OR_NAME:/CONTAINER_DIR /HOST_DIR
 docker-bind-mount /HOST_DIR CONTAINER_ID_OR_NAME:/CONTAINER_DIR
 ```
 
-### `docker-mount-overlay-image-ro`: mount a overlay storage of a image (or container) as readonly
+### `docker-mount-image`: Persistently mount a docker image or container as readonly
 
 ```
-root@GEEK:/host-rootfs# docker-mount-overlay-image-ro cae89cdb65cd /xxx
+docker-mount-image ID_OR_NAME MOUNT_POINT
+```
+
+```
+$ docker-mount-image cae89cdb65cd
 root@GEEK:/host-rootfs# ls /xxx
 bin  dev  etc  home  proc  root  sys  tmp  usr  var
 ```
@@ -250,7 +276,11 @@ docker-mount-win-drive C MY_USER MY_DOMAIN
 mounted at /var/lib/docker/C
 ```
 
-to unmount, `docker-geek umount /var/lib/docker/C` 
+to unmount, `docker-geek umount /var/lib/docker/C`
+
+For detail, see 
+- https://github.com/docker/for-win/issues/466#issuecomment-398305463
+- https://github.com/docker/for-win/issues/466#issuecomment-416682825 
 
 ### `docker-mount-cifs`: Mount windows drive(such as C) into host at /var/lib/docker/C
 
@@ -276,6 +306,11 @@ $ docker-host
 linuxkit-025000000001:/# ls
 Users	 bin  etc   lib       libau.so.2    media  opt	 private  root	sbin	    srv  tmp  var
 Volumes  dev  home  libau.so  libau.so.2.9  mnt    port  proc	  run	sendtohost  sys  usr
+linuxkit-025000000001:/#
+linuxkit-025000000001:/# which crictl docker mount.cifs
+/usr/bin/crictl
+/usr/local/bin/docker
+/sbin/mount.cifs
 ```
 
 ### `docker-host1`: enter the host

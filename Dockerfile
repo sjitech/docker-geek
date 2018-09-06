@@ -18,9 +18,6 @@ COPY --from=osexp2000/util-linux-static /usr/share/man/man8/umount.8 ./distusr/s
 
 COPY ./scripts /dist/usr/local/bin/
 
-# copy nsenter-host related scripts
-COPY --from=osexp2000/nsenter-host /usr/local/bin/nsenter-* /dist/usr/local/bin/
-
 # copy bind-mount related scripts
 COPY --from=osexp2000/bind-mount /usr/local/bin/bind-mount /dist/usr/local/bin/
 

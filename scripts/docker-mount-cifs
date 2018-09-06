@@ -2,12 +2,16 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-    >&2 echo "Mount windows shared folder or SAMBA into host under /var/lib/docker/cifs/"
+    >&2 echo "Persistently mount a Windows or SAMBA shared folder to /var/lib/docker/cifs-*"
     >&2 echo ""
     >&2 echo "Usage:"
     >&2 echo "  ${0##*/} SHARE_UNC USER DOMAIN"
     >&2 echo ""
-    >&2 echo "Note: SHARE_UNC must be //IP/SHARE_NAME or //IP:PORT/SHARE_NAME"
+    >&2 echo "SHARE_UNC:"
+    >&2 echo "  //IP/SHARE_NAME or //IP:PORT/SHARE_NAME"
+    >&2 echo ""
+    >&2 echo "Note:"
+    >&2 echo "  you will be prompted to input password"
     >&2 echo ""
     >&2 echo "Example:"
     >&2 echo "  - ${0##*/} //192.168.1.2/share user domain"
@@ -19,9 +23,24 @@ function show_usage() {
 [[ $1 =~ //.*/.*$ ]] || show_usage
 [[ $2 ]] || show_usage
 
-docker-geek -it bash -c '
-    mnt=/var/lib/docker/cifs/"${1#//}" && \
-    ([[ -e "$mnt" ]] || mkdir -p "$mnt") && \
-    mount -t cifs "$1" "$mnt" -o user="$2",dom="$3" && \
-    echo mounted at "$mnt"
-' -- "$@"
+MOUNT_POINT=/var/lib/docker/cifs-"${1#//}"
+
+if [[ $IS_DOCKER_GEEK ]]; then
+    [[ -e "$MOUNT_POINT" ]] || mkdir -p "$MOUNT_POINT"
+    mount -t cifs "$1" "$MOUNT_POINT" -o user="$2",dom="$3"
+else
+    # Enter host namespace to do mount. The reason use nsenter-dockerd is that
+    # it definitely contains proper mount util and sh related stuff.
+    #
+    # Notes:
+    # - The --network=host --ipc=host --uts=host are optional, just for launching container faster
+
+    docker run --rm -it \
+        --privileged --userns=host \
+        --pid=host --network=host --ipc=host --uts=host \
+        osexp2000/nsenter-dockerd sh -c \
+            '([ -e "$1" ] || mkdir -p "$1") && mount -t cifs "$2" "$1" -o user="$3",dom="$4"' \
+                -- "$MOUNT_POINT" "$@"
+fi
+
+>&2 echo mounted at "$MOUNT_POINT"

@@ -1,0 +1,58 @@
+#!/bin/bash
+set -o errexit -o pipefail
+
+function show_usage() {
+    >&2 echo "Run a program in a container and trace its syscalls."
+    >&2 echo ""
+    >&2 echo "Usage:"
+    >&2 echo "  ${0##*/} [OPTS] CONTAINER_ID_OR_NAME COMMAND [ARGS...]"
+    >&2 echo ""
+    >&2 echo "OPTS"
+    >&2 echo "  To see available options, run:"
+    >&2 echo "    ${0##*/} -h"
+    >&2 echo "  Please join option indicator and value into a whole one to avoid space. E.g.,"
+    >&2 echo "    -e trace=file  ->  -etrace=file"
+    >&2 echo "    -P path        ->  -Ppath"
+    >&2 echo ""
+    exit 1
+}
+
+ID=""
+
+OPTS=()
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+    --help)
+            show_usage
+            ;;
+    -*)
+            OPTS+=("$1")
+            ;;
+    *)
+            ID=$1
+            shift
+            break
+            ;;
+    esac
+    shift
+done
+
+[[ ! $ID ]] && show_usage
+
+[[ $# == 0 ]] && show_usage
+
+PID=$(docker-pid-of-container "$ID")
+
+# todo: drop capabilities
+
+[[ $IS_DOCKER_GEEK ]] && exec strace "${OPTS[@]}" -f nsenter --target=$PID --all -- "$@"
+
+# Notes:
+# - The --network=host --ipc=host --uts=host are optional, just for launching container faster
+
+exec docker run --rm -it \
+    --cap-add=SYS_PTRACE --cap-add=SYS_ADMIN --userns=host \
+    --pid=host --network=host --ipc=host --uts=host \
+    osexp2000/docker-geek \
+        strace "${OPTS[@]}" -f nsenter --target=$PID --all -- "$@"

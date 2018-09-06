@@ -2,17 +2,25 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-    >&2 echo "Enter init process's namespaces(mount,pid,net,ipc,user,uts,cgroup)."
+    >&2 echo "Run a command or sh on behalf of the init process."
     >&2 echo ""
     >&2 echo "Usage:"
-    >&2 echo "  ${0##*/} [OPTIONS] [CMD [ARGS...]]"
-    >&2 echo ""
-    >&2 echo "OPTIONS:"
-    >&2 echo "  -i, --interactive                    Keep STDIN open even if not attached"
-    >&2 echo "  -t, --tty                            Allocate a pseudo-TTY"
+    if [[ $IS_DOCKER_GEEK ]]; then
+        >&2 echo "  ${0##*/} [CMD [ARGS...]]"
+    else
+        >&2 echo "  ${0##*/} [OPTIONS] [CMD [ARGS...]]"
+        >&2 echo ""
+        >&2 echo "OPTIONS:"
+        >&2 echo "  -i, --interactive                    Keep STDIN open even if not attached"
+        >&2 echo "  -t, --tty                            Allocate a pseudo-TTY"
+    fi
     >&2 echo ""
     >&2 echo "Note:"
-    >&2 echo "  - If no any argument specified, it will run an interactive /bin/sh (implies '-i' and '-t')."
+    if [[ $IS_DOCKER_GEEK ]]; then
+        >&2 echo "  - If no any argument specified, it will run an interactive /bin/sh."
+    else
+        >&2 echo "  - If no any argument specified, it will run an interactive /bin/sh (implies '-i' and '-t')."
+    fi
     >&2 echo ""
     exit 1
 }
@@ -50,10 +58,14 @@ if [[ $# == 0 && ! $OPT_INTERACTIVE && ! $OPT_TTY ]]; then
     OPT_TTY=-t
 fi
 
-[[ $IS_DOCKER_GEEK ]] && exec nsenter --target=1 --all "$@"
+if [[ $IS_DOCKER_GEEK ]]; then
+    SHELL=/bin/sh exec nsenter --target 1 --all -- "$@"
+fi
+
+# Notes:
+# - The --network=host --ipc=host --uts=host are optional, just for launching container faster
 
 exec docker run --rm $OPT_INTERACTIVE $OPT_TTY \
     --privileged --userns=host \
     --pid=host --network=host --ipc=host --uts=host \
-    -e SHELL=/bin/sh \
-    osexp2000/nsenter --target=1 --all "$@"
+    osexp2000/nsenter --target=1 --all -- "$@"

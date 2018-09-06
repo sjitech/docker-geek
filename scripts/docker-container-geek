@@ -2,7 +2,7 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-    >&2 echo "Start docker-geek and map a container's rootfs into /rootfs."
+    >&2 echo "Start a docker-geek in which map a container's rootfs to /rootfs."
     >&2 echo ""
     >&2 echo "Usage:"
     >&2 echo "  ${0##*/} [OPTIONS] CONTAINER_ID_OR_NAME [CMD [ARGS...]]"
@@ -56,9 +56,9 @@ fi
 
 [[ ! $ID ]] && show_usage
 
-PID=$(docker-pid-of-container $ID)
+PID=$(docker-pid-of-container "$ID")
 
-ROOTFS=$(docker-rootfs-of-container $ID)
+ROOTFS=$(docker-rootfs-of-container "$ID")
 
 [[ ! $ID =~ ^[0-9a-f]{12}$ && ! $ID =~ ^[0-9a-f]{64}$ ]] && ID=$(docker container inspect -f '{{.ID}}' "$ID")
 
@@ -70,7 +70,7 @@ ROOTFS=$(docker-rootfs-of-container $ID)
 exec docker run --rm $OPT_INTERACTIVE $OPT_TTY \
     --privileged --userns=host \
     --pid=host --network=host --ipc=host \
-    --hostname=GEEK-${ID:0:12} --add-host GEEK-${ID:0:12}:127.0.0.1 \
+    --hostname=GEEK#${ID:0:12} --add-host GEEK#${ID:0:12}:127.0.0.1 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v /var/lib/docker:/var/lib/docker:rshared \
     -v /:/host-rootfs \

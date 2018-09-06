@@ -2,10 +2,13 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-    >&2 echo "Start docker-geek and map a image's rootfs (readonly) into /rootfs."
+    >&2 echo "Start a docker-geek in which mount an image or container to /rootfs as readonly"
     >&2 echo ""
     >&2 echo "Usage:"
-    >&2 echo "  ${0##*/} [OPTIONS] IMAGE_ID_OR_NAME [CMD [ARGS...]]"
+    >&2 echo "  ${0##*/} [OPTIONS] ID_OR_NAME [CMD [ARGS...]]"
+    >&2 echo ""
+    >&2 echo "ID_OR_NAME:"
+    >&2 echo "  ID or name of an image or container"
     >&2 echo ""
     >&2 echo "OPTIONS:"
     >&2 echo "  -i, --interactive                    Keep STDIN open even if not attached"
@@ -56,24 +59,36 @@ fi
 
 [[ ! $ID ]] && show_usage
 
-LAYERS=($(docker-layers-of $ID))
+LAYERS=($(docker-layers-of "$ID"))
 LAYERS=${LAYERS[*]}
 LAYERS=${LAYERS// /:}
 
-[[ ! $ID =~ ^[0-9a-f]{12}$ && ! $ID =~ ^[0-9a-f]{64}$ ]] && ID=$(docker image inspect -f '{{.ID}}' "$ID") && ID=${ID#sha256:}
+[[ ! $ID =~ ^[0-9a-f]{12}$ && ! $ID =~ ^[0-9a-f]{64}$ ]] && ID=$(docker inspect -f '{{.ID}}' "$ID")
+ID=${ID#sha256:}
+
+CMD=("$@"); [[ $# == 0 ]] && CMD=(bash -l)
 
 # Notes:
 # - The --hostname=GEEK is for showing hostname as an indicator of the special container.
 # - The --add-host GEEK:127.0.0.1 is for avoiding sudo from warning about host can not be resolved.
 # - The -v /var/lib/docker:/var/lib/docker:rshared is for bind-mounting across containers later
 
-CMD=("$@"); [[ $# == 0 ]] && CMD=(bash -l)
-
 exec docker run --rm $OPT_INTERACTIVE $OPT_TTY \
     --privileged --userns=host \
     --pid=host --network=host --ipc=host \
-    --hostname=GEEK-${ID:0:12} --add-host GEEK-${ID:0:12}:127.0.0.1 \
+    --hostname=GEEK#${ID:0:12} --add-host GEEK#${ID:0:12}:127.0.0.1 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v /var/lib/docker:/var/lib/docker:rshared \
-    osexp2000/docker-geek \
-        mount-overlay-ro "$LAYERS" /rootfs "${CMD[@]}"
+    osexp2000/docker-geek bash -c '
+        set -o errexit -o pipefail
+        mkdir /rootfs
+        if [[ $1 == *:* ]]; then
+            mount -t overlay overlay -o lowerdir="$1" /rootfs
+        else
+            mount -o bind,ro "$1" /rootfs
+        fi
+        cd /rootfs
+        shift
+        exec "$@"
+        ' \
+            -- "$LAYERS" "${CMD[@]}"

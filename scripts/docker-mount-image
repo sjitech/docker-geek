@@ -1,0 +1,58 @@
+#!/bin/bash
+set -o errexit -o pipefail
+
+function show_usage() {
+    >&2 echo "Persistently mount a image or container to /var/lib/docker/img-<ID> as readonly"
+    >&2 echo ""
+    >&2 echo "Usage:"
+    >&2 echo "  ${0##*/} ID_OR_NAME"
+    >&2 echo ""
+    >&2 echo "ID_OR_NAME:"
+    >&2 echo "  ID or name of an image or container"
+    >&2 echo ""
+    exit 1
+}
+
+[[ ! $1 || $1 == --help ]] && show_usage
+ID=$1
+
+LAYERS=($(docker-layers-of "$ID"))
+LAYERS=${LAYERS[*]}
+LAYERS=${LAYERS// /:}
+
+[[ ! $ID =~ ^[0-9a-f]{12}$ && ! $ID =~ ^[0-9a-f]{64}$ ]] && ID=$(docker inspect -f '{{.ID}}' "$ID")
+ID=${ID#sha256:}
+
+MOUNT_POINT=/var/lib/docker/img-${ID:0:12}
+
+if [[ $IS_DOCKER_GEEK ]]; then
+    [[ -e "$MOUNT_POINT" ]] || mkdir "$MOUNT_POINT"
+    if [[ $LAYERS == *:* ]]; then
+        mount -t overlay overlay -o lowerdir="$LAYERS" "$MOUNT_POINT"
+    else
+        mount -o bind,ro "$LAYERS" "$MOUNT_POINT"
+    fi
+else
+    # Enter host namespace to do mount. The reason use nsenter-dockerd is that
+    # it definitely contains proper mount util and sh related stuff.
+    #
+    # Notes:
+    # - The --network=host --ipc=host --uts=host are optional, just for launching container faster
+
+    COM_CMD=(docker run --rm \
+            --privileged --userns=host \
+            --pid=host --network=host --ipc=host --uts=host \
+            osexp2000/nsenter-dockerd)
+
+    if [[ $LAYERS == *:* ]]; then
+        "${COM_CMD[@]}" sh -c \
+            '([ -e "$1" ] || mkdir "$1") && mount -t overlay -o lowerdir="$2" overlay "$1"' \
+                -- "$MOUNT_POINT" "$LAYERS"
+    else
+        "${COM_CMD[@]}" sh -c \
+            '([ -e "$1" ] || mkdir "$1") && mount -o bind,ro "$2" "$1"' \
+                -- "$MOUNT_POINT" "$LAYERS"
+    fi
+fi
+
+>&2 echo mounted at "$MOUNT_POINT"

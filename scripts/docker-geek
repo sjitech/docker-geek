@@ -56,7 +56,7 @@ fi
 # - The -v /var/lib/docker:/var/lib/docker:rshared is for bind-mounting across containers later
 
 # todo: add geek to unlimted cgroup
-# todo: share a named instance of docker-geek
+# todo: support --name NAME to start a new named instance or exec in existing instance
 
 exec docker run --rm $OPT_INTERACTIVE $OPT_TTY \
     --privileged --userns=host \
@@ -65,7 +65,5 @@ exec docker run --rm $OPT_INTERACTIVE $OPT_TTY \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v /var/lib/docker:/var/lib/docker:rshared \
     -v /:/host-rootfs \
-    --workdir /host-rootfs \
     $DOCKER_GEEK_OPTS \
-    osexp2000/docker-geek \
-        "$@"
+    osexp2000/docker-geek "$@"
