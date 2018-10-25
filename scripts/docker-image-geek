@@ -79,6 +79,7 @@ exec docker run --rm $OPT_INTERACTIVE $OPT_TTY \
     --hostname=GEEK#${ID:0:12} --add-host GEEK#${ID:0:12}:127.0.0.1 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v /var/lib/docker:/var/lib/docker:rshared \
+    -v /:/host-rootfs \
     osexp2000/docker-geek bash -c '
         set -o errexit -o pipefail
         mkdir /rootfs
