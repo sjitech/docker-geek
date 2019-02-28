@@ -33,6 +33,7 @@ docker run --rm -it \
     --pid=host --network=host --ipc=host \
     --hostname=GEEK --add-host GEEK:127.0.0.1 \
     -v /var/run/docker.sock:/var/run/docker.sock \
+    -v /var/run/docker.pid:/var/run/docker.pid \
     -v /var/lib/docker:/var/lib/docker:rshared \
     -v /:/host-rootfs \
     --workdir /host-rootfs \
@@ -45,6 +46,7 @@ docker run --rm -it ^
     --pid=host --network=host --ipc=host ^
     --hostname=GEEK --add-host GEEK:127.0.0.1 ^
     -v /var/run/docker.sock:/var/run/docker.sock ^
+    -v /var/run/docker.pid:/var/run/docker.pid ^
     -v /var/lib/docker:/var/lib/docker:rshared ^
     -v /:/host-rootfs ^
     --workdir /host-rootfs ^

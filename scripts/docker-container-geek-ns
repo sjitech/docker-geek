@@ -70,6 +70,7 @@ exec docker run --rm $OPT_INTERACTIVE $OPT_TTY \
     --privileged --userns=host \
     --pid=container:$ID --network=container:$ID --ipc=container:$ID \
     -v /var/run/docker.sock:/var/run/docker.sock \
+    -v /var/run/docker.pid:/var/run/docker.pid \
     -v /var/lib/docker:/var/lib/docker:rshared \
     -v /:/host-rootfs \
     -v $ROOTFS:/rootfs \

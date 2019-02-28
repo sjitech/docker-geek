@@ -59,7 +59,7 @@ if [[ $# == 0 && ! $OPT_INTERACTIVE && ! $OPT_TTY ]]; then
 fi
 
 if [[ $IS_DOCKER_GEEK ]]; then
-    DOCKERD_PID=$(cat /proc/1/root/run/docker.pid)
+    DOCKERD_PID=$(cat /var/run/docker.pid)
     SHELL=/bin/sh exec nsenter --target $DOCKERD_PID --all -- "$@"
 fi
 
