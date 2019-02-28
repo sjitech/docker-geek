@@ -46,4 +46,5 @@ ROOTFS=""; [[ $ID ]] && ROOTFS=$(docker-rootfs-of-container "$ID")
 exec docker run --rm \
     --privileged --userns=host \
     --pid=host --network=host --ipc=host --uts=host \
+    -v /var/run/docker.pid:/var/run/docker.pid \
     osexp2000/nsenter-dockerd umount "$ROOTFS$MOUNT_POINT"

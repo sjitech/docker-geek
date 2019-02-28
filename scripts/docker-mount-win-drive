@@ -36,6 +36,7 @@ else
     docker run --rm -it \
         --privileged --userns=host \
         --pid=host --network=host --ipc=host --uts=host \
+        -v /var/run/docker.pid:/var/run/docker.pid \
         osexp2000/nsenter-dockerd sh -c \
             '([ -e $1 ] || mkdir $1) && \
             ip=`nslookup host.docker.internal 127.0.0.1 |grep Address |awk '"'"'{print $3}'"'"' |tail -1 |grep -vF 127.0.0.1` && \

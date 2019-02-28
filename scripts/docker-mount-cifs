@@ -38,6 +38,7 @@ else
     docker run --rm -it \
         --privileged --userns=host \
         --pid=host --network=host --ipc=host --uts=host \
+        -v /var/run/docker.pid:/var/run/docker.pid \
         osexp2000/nsenter-dockerd sh -c \
             '([ -e "$1" ] || mkdir -p "$1") && mount -t cifs "$2" "$1" -o user="$3",dom="$4"' \
                 -- "$MOUNT_POINT" "$@"
