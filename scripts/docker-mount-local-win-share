@@ -2,21 +2,21 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-    >&2 echo "Persistently mount a Windows drive(such as C) to /var/lib/docker/?"
+    >&2 echo "Persistently mount a local Windows share to /var/lib/docker/?"
     >&2 echo ""
     >&2 echo "Usage:"
-    >&2 echo "  ${0##*/} DRIVE_LETTER USER DOMAIN"
+    >&2 echo "  ${0##*/} SHARE_NAME USER DOMAIN"
     >&2 echo ""
     >&2 echo "Note: you will be prompted to input password"
     >&2 echo ""
     >&2 echo "Example:"
-    >&2 echo "  - ${0##*/} C user domain"
+    >&2 echo "  - ${0##*/} 'C$' user domain"
     >&2 echo ""
     exit 1
 }
 
 [[ ! $1 || $1 == --help ]] && show_usage
-[[ $1 =~ ^[A-Za-z]$ ]] || show_usage
+[[ $1 =~ ^[^\\]+$ ]] || show_usage
 [[ $2 ]] || show_usage
 
 MOUNT_POINT=/var/lib/docker/$1
@@ -40,7 +40,7 @@ else
         osexp2000/nsenter-dockerd sh -c \
             '([ -e $1 ] || mkdir $1) && \
             ip=`nslookup host.docker.internal 127.0.0.1 |grep Address |awk '"'"'{print $3}'"'"' |tail -1 |grep -vF 127.0.0.1` && \
-            [ -n "$ip" ] && mount -t cifs //$ip/$2 $1 -o user="$3",dom="$4"' \
+            [ -n "$ip" ] && mount -t cifs //$ip/"$2" "$1" -o user="$3",dom="$4"' \
                 -- "$MOUNT_POINT" "$@"
 fi
 
