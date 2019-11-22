@@ -26,7 +26,7 @@ ID=${ID#sha256:}
 MOUNT_POINT=/mnt/${ID:0:12}
 
 if [[ $IS_DOCKER_GEEK ]]; then
-    [[ -e "$MOUNT_POINT" ]] || mkdir "$MOUNT_POINT"
+    mkdir -p "$MOUNT_POINT"
     if [[ $LAYERS == *:* ]]; then
         mount -t overlay overlay -o lowerdir="$LAYERS" "$MOUNT_POINT"
     else
@@ -47,11 +47,11 @@ else
 
     if [[ $LAYERS == *:* ]]; then
         "${COM_CMD[@]}" sh -c \
-            '([ -e "$1" ] || mkdir "$1") && mount -t overlay -o lowerdir="$2" overlay "$1"' \
+            'mkdir -p "$1" && mount -t overlay -o lowerdir="$2" overlay "$1"' \
                 -- "$MOUNT_POINT" "$LAYERS"
     else
         "${COM_CMD[@]}" sh -c \
-            '([ -e "$1" ] || mkdir "$1") && mount -o bind,ro "$2" "$1"' \
+            'mkdir -p "$1" && mount -o bind,ro "$2" "$1"' \
                 -- "$MOUNT_POINT" "$LAYERS"
     fi
 fi

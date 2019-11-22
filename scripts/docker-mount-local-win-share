@@ -22,7 +22,7 @@ function show_usage() {
 MOUNT_POINT=/mnt/$1
 
 if [[ $IS_DOCKER_GEEK ]]; then
-    [[ -e "$MOUNT_POINT" ]] || mkdir "$MOUNT_POINT"
+    mkdir -p "$MOUNT_POINT"
     ip=$(dig +short host.docker.internal)
     [[ ! $ip ]] && { >&2 echo "can not resolve host.docker.internal"; exit 1; }
     mount -t cifs "//$ip/$1" "$MOUNT_POINT" -o user="$2",dom="$3"
@@ -38,7 +38,7 @@ else
         --pid=host --network=host --ipc=host --uts=host \
         -v /var/run/docker.pid:/var/run/docker.pid \
         osexp2000/nsenter-dockerd sh -c \
-            '([ -e "$1" ] || mkdir "$1") && \
+            'mkdir -p "$1" && \
             ip=`nslookup host.docker.internal 127.0.0.1 |grep Address |awk '"'"'{print $3}'"'"' |tail -1 |grep -vF 127.0.0.1` && \
             [ -n "$ip" ] && mount -t cifs //$ip/"$2" "$1" -o user="$3",dom="$4"' \
                 -- "$MOUNT_POINT" "$@"

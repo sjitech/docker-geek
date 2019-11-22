@@ -26,7 +26,7 @@ function show_usage() {
 MOUNT_POINT=/mnt/${1#//}"
 
 if [[ $IS_DOCKER_GEEK ]]; then
-    [[ -e "$MOUNT_POINT" ]] || mkdir -p "$MOUNT_POINT"
+    mkdir -p "$MOUNT_POINT"
     mount -t cifs "$1" "$MOUNT_POINT" -o user="$2",dom="$3"
 else
     # Enter host namespace to do mount. The reason use nsenter-dockerd is that
@@ -40,7 +40,7 @@ else
         --pid=host --network=host --ipc=host --uts=host \
         -v /var/run/docker.pid:/var/run/docker.pid \
         osexp2000/nsenter-dockerd sh -c \
-            '([ -e "$1" ] || mkdir -p "$1") && mount -t cifs "$2" "$1" -o user="$3",dom="$4"' \
+            'mkdir -p "$1" && mount -t cifs "$2" "$1" -o user="$3",dom="$4"' \
                 -- "$MOUNT_POINT" "$@"
 fi
 

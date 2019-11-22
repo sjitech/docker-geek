@@ -83,7 +83,7 @@ exec docker run --rm $OPT_INTERACTIVE $OPT_TTY \
     -v /:/host-rootfs \
     osexp2000/docker-geek bash -c '
         set -o errexit -o pipefail
-        mkdir /rootfs
+        mkdir -p /rootfs
         if [[ $1 == *:* ]]; then
             mount -t overlay overlay -o lowerdir="$1" /rootfs
         else
