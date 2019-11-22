@@ -23,7 +23,7 @@ function show_usage() {
 [[ $1 =~ //.*/.*$ ]] || show_usage
 [[ $2 ]] || show_usage
 
-MOUNT_POINT=/var/lib/docker/cifs-"${1#//}"
+MOUNT_POINT=/mnt/${1#//}"
 
 if [[ $IS_DOCKER_GEEK ]]; then
     [[ -e "$MOUNT_POINT" ]] || mkdir -p "$MOUNT_POINT"

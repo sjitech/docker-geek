@@ -19,7 +19,7 @@ function show_usage() {
 [[ $1 =~ ^[^\\]+$ ]] || show_usage
 [[ $2 ]] || show_usage
 
-MOUNT_POINT=/var/lib/docker/$1
+MOUNT_POINT=/mnt/$1
 
 if [[ $IS_DOCKER_GEEK ]]; then
     [[ -e "$MOUNT_POINT" ]] || mkdir "$MOUNT_POINT"
@@ -38,7 +38,7 @@ else
         --pid=host --network=host --ipc=host --uts=host \
         -v /var/run/docker.pid:/var/run/docker.pid \
         osexp2000/nsenter-dockerd sh -c \
-            '([ -e $1 ] || mkdir $1) && \
+            '([ -e "$1" ] || mkdir "$1") && \
             ip=`nslookup host.docker.internal 127.0.0.1 |grep Address |awk '"'"'{print $3}'"'"' |tail -1 |grep -vF 127.0.0.1` && \
             [ -n "$ip" ] && mount -t cifs //$ip/"$2" "$1" -o user="$3",dom="$4"' \
                 -- "$MOUNT_POINT" "$@"

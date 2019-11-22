@@ -23,7 +23,7 @@ LAYERS=${LAYERS// /:}
 [[ ! $ID =~ ^[0-9a-f]{12}$ && ! $ID =~ ^[0-9a-f]{64}$ ]] && ID=$(docker inspect -f '{{.ID}}' "$ID")
 ID=${ID#sha256:}
 
-MOUNT_POINT=/var/lib/docker/img-${ID:0:12}
+MOUNT_POINT=/mnt/${ID:0:12}
 
 if [[ $IS_DOCKER_GEEK ]]; then
     [[ -e "$MOUNT_POINT" ]] || mkdir "$MOUNT_POINT"
