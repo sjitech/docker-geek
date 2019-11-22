@@ -2,7 +2,7 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-    >&2 echo "Persistently mount a image or container to /var/lib/docker/img-<ID> as readonly"
+    >&2 echo "Persistently mount a image or container to /mnt/<IMAGE_LAYER_ID> as readonly"
     >&2 echo ""
     >&2 echo "Usage:"
     >&2 echo "  ${0##*/} ID_OR_NAME"

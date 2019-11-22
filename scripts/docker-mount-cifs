@@ -2,7 +2,7 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-    >&2 echo "Persistently mount a Windows or SAMBA shared folder to /var/lib/docker/cifs-*"
+    >&2 echo "Persistently mount a Windows or SAMBA shared folder to /mnt/<IP>/<SHARE_PATH>"
     >&2 echo ""
     >&2 echo "Usage:"
     >&2 echo "  ${0##*/} SHARE_UNC USER DOMAIN"

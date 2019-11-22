@@ -72,7 +72,7 @@ docker-image-geek
 
 docker-mount-image
 docker-mount-cifs
-docker-mount-win-drive
+docker-mount-local-win-share
 docker-bind-mount
 
 docker-umount
@@ -264,27 +264,27 @@ root@GEEK:/host-rootfs# ls /xxx
 bin  dev  etc  home  proc  root  sys  tmp  usr  var
 ```
 
-### `docker-mount-win-drive`: Mount windows drive(such as C) into host at /var/lib/docker/C
+### `docker-mount-local-win-share`: Mount windows drive(such as C$) into host at /mnt/C$
 
 This is specially useful for `Docker for Windows` when it complains firewall detected, due to
 various reason, notably in a enterprise environment where every PC runs a Anti-Virus soft.
 
 ```
-docker-mount-win-drive DRIVE_LETTER USER DOMAIN
+docker-mount-local-win-share DRIVE_LETTER USER DOMAIN
 ```
 ```
-docker-mount-win-drive C MY_USER MY_DOMAIN
+docker-mount-local-win-share C$ MY_USER MY_DOMAIN
 ... enter password ...
-mounted at /var/lib/docker/C
+mounted at /mnt/C$
 ```
 
-to unmount, `docker-geek umount /var/lib/docker/C`
+to unmount, `docker-geek umount /mnt/C$`
 
 For detail, see 
 - https://github.com/docker/for-win/issues/466#issuecomment-398305463
 - https://github.com/docker/for-win/issues/466#issuecomment-416682825 
 
-### `docker-mount-cifs`: Mount windows drive(such as C) into host at /var/lib/docker/C
+### `docker-mount-cifs`: Mount windows drive(such as C) into host at /mnt/C
 
 This is specially useful for `Docker for Windows` when it complains firewall detected, due to
 various reason, notably in a enterprise environment where every PC runs a Anti-Virus soft.
@@ -295,10 +295,10 @@ docker-mount-cifs SHARE_UNC USER DOMAIN
 ```
 docker-mount-cifs //192.168.1.2/share user domain
 ... enter password ...
-mounted at /var/lib/docker/cifs/192.168.1.2/share
+mounted at /mnt/192.168.1.2/share
 ```
 
-to unmount, `docker-geek umount /var/lib/docker/cifs/192.168.1.2/share` 
+to unmount, `docker-geek umount /mnt/192.168.1.2/share` 
 
 ### `docker-host`: enter the `dockerd`
 

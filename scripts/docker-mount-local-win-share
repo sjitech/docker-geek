@@ -2,7 +2,7 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-    >&2 echo "Persistently mount a local Windows share to /var/lib/docker/?"
+    >&2 echo "Persistently mount a local Windows share to /mnt/<SHARE_NAME>"
     >&2 echo ""
     >&2 echo "Usage:"
     >&2 echo "  ${0##*/} SHARE_NAME USER DOMAIN"
