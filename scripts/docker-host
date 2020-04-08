@@ -59,7 +59,7 @@ if [[ $# == 0 && ! $OPT_INTERACTIVE && ! $OPT_TTY ]]; then
 fi
 
 if [[ $IS_DOCKER_GEEK ]]; then
-    DOCKERD_PID=$(cat /var/run/docker.pid)
+    DOCKERD_PID=$(cat /run/desktop/docker.pid)
     SHELL=/bin/sh exec nsenter --target $DOCKERD_PID --all -- "$@"
 fi
 
@@ -69,5 +69,5 @@ fi
 exec docker run --rm $OPT_INTERACTIVE $OPT_TTY \
     --privileged --userns=host \
     --pid=host --network=host --ipc=host --uts=host \
-    -v /var/run/docker.pid:/var/run/docker.pid \
+    -v /run/desktop/docker.pid:/var/run/docker.pid \
     osexp2000/nsenter-dockerd "$@"
