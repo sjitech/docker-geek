@@ -2,71 +2,71 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-    >&2 echo "Show capability of init process of a container."
-    >&2 echo ""
-    >&2 echo "Usage:"
-    >&2 echo "  ${0##*/} [OPTIONS] [MODE] [CONTAINER_ID_OR_NAME]"
-    >&2 echo ""
-    >&2 echo "OPTIONS:"
-    >&2 echo "  --CapEff              Effective capability"
-    >&2 echo "  --CapPrm              Permitted capability"
-    >&2 echo "  --CapBnd              Bound capability"
-    >&2 echo "  --CapAmb              Ambient capability"
-    >&2 echo ""
-    >&2 echo "      --no-sort         Show names without sort"
-    >&2 echo ""
-    >&2 echo "MODE:"
-    >&2 echo "  -n, --value           Only show hexadecimal value instead of name"
-    >&2 echo "  -f, --full            Show value=[name name ...] in one line"
-    >&2 echo ""
-    >&2 echo "Note:"
-    >&2 echo "  - Default OPTIONS is '--CapEff'."
-    >&2 echo "  - By default, it output sorted names in multiline."
-    >&2 echo "  - If CONTAINER_ID_OR_NAME is omitted, it reads each line from input, echo it,"
-    >&2 echo "    grep out an 12 or 64 chars lowercase hex id, if found then process the id"
-    >&2 echo "    and show result in one line according to mode, with '  cap: ' prepended."
-    >&2 echo ""
-    >&2 echo "Example:"
-    >&2 echo "  - ${0##*/} 17d09873c8a5"
-    >&2 echo "  - docker ps | ${0##*/}"
-    >&2 echo ""
-    exit 1
+  >&2 echo "Show capability of init process of a container."
+  >&2 echo ""
+  >&2 echo "Usage:"
+  >&2 echo "  ${0##*/} [OPTIONS] [MODE] [CONTAINER_ID_OR_NAME]"
+  >&2 echo ""
+  >&2 echo "OPTIONS:"
+  >&2 echo "  --CapEff              Effective capability"
+  >&2 echo "  --CapPrm              Permitted capability"
+  >&2 echo "  --CapBnd              Bound capability"
+  >&2 echo "  --CapAmb              Ambient capability"
+  >&2 echo ""
+  >&2 echo "      --no-sort         Show names without sort"
+  >&2 echo ""
+  >&2 echo "MODE:"
+  >&2 echo "  -n, --value           Only show hexadecimal value instead of name"
+  >&2 echo "  -f, --full            Show value=[name name ...] in one line"
+  >&2 echo ""
+  >&2 echo "Note:"
+  >&2 echo "  - Default OPTIONS is '--CapEff'."
+  >&2 echo "  - By default, it output sorted names in multiline."
+  >&2 echo "  - If CONTAINER_ID_OR_NAME is omitted, it reads each line from input, echo it,"
+  >&2 echo "    grep out an 12 or 64 chars lowercase hex id, if found then process the id"
+  >&2 echo "    and show result in one line according to mode, with '  cap: ' prepended."
+  >&2 echo ""
+  >&2 echo "Example:"
+  >&2 echo "  - ${0##*/} 17d09873c8a5"
+  >&2 echo "  - docker ps | ${0##*/}"
+  >&2 echo ""
+  exit 1
 }
 
 ID=""; OPTS=()
 
 while [[ $# -gt 0 ]]; do
-    case $1 in
-    --CapEff|--CapPrm|--CapBnd|--CapAmb|-n|--value|-f|--full|--no-sort)
-            OPTS+=($1)
-            ;;
-    -*)
-            show_usage
-            ;;
-    *)
-            ID=$1
-            ;;
-    esac
-    shift
+  case $1 in
+  --CapEff|--CapPrm|--CapBnd|--CapAmb|-n|--value|-f|--full|--no-sort)
+      OPTS+=($1)
+      ;;
+  -*)
+      show_usage
+      ;;
+  *)
+      ID=$1
+      ;;
+  esac
+  shift
 done
 
 if [[ $ID ]]; then
-    PID=$(docker-pid-of-container "$ID")
-    [[ ! $IS_DOCKER_GEEK ]] && exec docker-geek cap-of-proc ${OPTS[@]} $PID
-    exec cap-of-proc ${OPTS[@]} $PID
+  PID=$(docker-pid-of-container "$ID")
+  [[ ! $IS_DOCKER_GEEK ]] && exec docker-geek cap-of-proc ${OPTS[@]} $PID
+  exec cap-of-proc ${OPTS[@]} $PID
 else
-    [[ ! $IS_DOCKER_GEEK ]] && exec docker-geek -i ${0##*/} ${OPTS[@]}
-    while IFS='' read -r line; do
-        echo "$line"
-        [[ $line =~ ^"  "[a-z]+:$ ]] && continue
-        ID=""
-        read -a a <<<"$line"
-        for x in "${a[@]}"; do
-            [[ $x =~ ^[0-9a-f]{12}$ || $x =~ ^[0-9a-f]{64}$ ]] && ID=$x && break
-        done
-        if [[ $ID ]] && PID=$(docker-pid-of-container "$ID" 2>/dev/null) \
-            && CAP=($(cap-of-proc ${OPTS[@]} $PID 2>/dev/null)); then
-            echo "  cap: ${CAP[@]}"
-        fi
+  [[ ! $IS_DOCKER_GEEK ]] && exec docker-geek -i ${0##*/} ${OPTS[@]}
+  while IFS='' read -r line; do
+    echo "$line"
+    [[ $line =~ ^"  "[a-z]+:$ ]] && continue
+    ID=""
+    read -a a <<<"$line"
+    for x in "${a[@]}"; do
+      [[ $x =~ ^[0-9a-f]{12}$ || $x =~ ^[0-9a-f]{64}$ ]] && ID=$x && break
     done
+    if [[ $ID ]] && PID=$(docker-pid-of-container "$ID" 2>/dev/null) \
+      && CAP=($(cap-of-proc ${OPTS[@]} $PID 2>/dev/null)); then
+      echo "  cap: ${CAP[@]}"
+    fi
+  done
 fi

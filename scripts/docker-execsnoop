@@ -1,8 +1,8 @@
 #!/bin/bash
 
 if [[ $IS_DOCKER_GEEK ]]; then
-    [[ -e /sys/kernel/debug/tracing ]] || mount -t debugfs debugfs /sys/kernel/debug
-    exec execsnoop "$@"
+  [[ -e /sys/kernel/debug/tracing ]] || mount -t debugfs debugfs /sys/kernel/debug
+  exec execsnoop "$@"
 fi
 
 # Notes:
@@ -10,6 +10,6 @@ fi
 # - The --network=host --ipc=host --uts=host are optional, just for launching container faster
 
 exec docker run --rm -it \
-    --privileged --userns=host \
-    --pid=host --network=host --ipc=host --uts=host \
-    osexp2000/docker-geek bash -c 'mount -t debugfs debugfs /sys/kernel/debug && execsnoop "$@"' -- "$@"
+  --privileged --userns=host \
+  --pid=host --network=host --ipc=host --uts=host \
+  osexp2000/docker-geek bash -c 'mount -t debugfs debugfs /sys/kernel/debug && execsnoop "$@"' -- "$@"

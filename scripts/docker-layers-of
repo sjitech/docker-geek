@@ -2,55 +2,55 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-    >&2 echo "Show storage layers of an image or container"
-    >&2 echo ""
-    >&2 echo "Usage:"
-    >&2 echo "  ${0##*/} [ID_OR_NAME]"
-    >&2 echo ""
-    >&2 echo "ID_OR_NAME:"
-    >&2 echo "  ID or name of an image or container"
-    >&2 echo ""
-    >&2 echo "Note:"
-    >&2 echo "  - If ID_OR_NAME is omitted, it reads each line from input, echo it,"
-    >&2 echo "    grep out an 12 or 64 chars lowercase hex id, if found then process the id"
-    >&2 echo "    and show each line of result with '  layer: ' prepended."
-    >&2 echo ""
-    >&2 echo "Example:"
-    >&2 echo "  - ${0##*/} 17d09873c8a5"
-    >&2 echo "  - docker ps | ${0##*/}"
-    >&2 echo ""
-    exit 1
+  >&2 echo "Show storage layers of an image or container"
+  >&2 echo ""
+  >&2 echo "Usage:"
+  >&2 echo "  ${0##*/} [ID_OR_NAME]"
+  >&2 echo ""
+  >&2 echo "ID_OR_NAME:"
+  >&2 echo "  ID or name of an image or container"
+  >&2 echo ""
+  >&2 echo "Note:"
+  >&2 echo "  - If ID_OR_NAME is omitted, it reads each line from input, echo it,"
+  >&2 echo "    grep out an 12 or 64 chars lowercase hex id, if found then process the id"
+  >&2 echo "    and show each line of result with '  layer: ' prepended."
+  >&2 echo ""
+  >&2 echo "Example:"
+  >&2 echo "  - ${0##*/} 17d09873c8a5"
+  >&2 echo "  - docker ps | ${0##*/}"
+  >&2 echo ""
+  exit 1
 }
 
 ID=""
 
 while [[ $# -gt 0 ]]; do
-    case $1 in
-    -*)
-            show_usage
-            ;;
-    *)
-            ID=$1
-            ;;
-    esac
-    shift
+  case $1 in
+  -*)
+      show_usage
+      ;;
+  *)
+      ID=$1
+      ;;
+  esac
+  shift
 done
 
 if [[ $ID ]]; then
-    exec docker inspect "$ID" --format '{{.GraphDriver.Data.UpperDir}}:{{.GraphDriver.Data.LowerDir}}' | tr ':' '\n' | grep --color=no /
+  exec docker inspect "$ID" --format '{{.GraphDriver.Data.UpperDir}}:{{.GraphDriver.Data.LowerDir}}' | tr ':' '\n' | grep --color=no /
 else
-    while IFS='' read -r line; do
-        echo "$line"
-        [[ $line =~ ^"  "[a-z]+:$ ]] && continue
-        ID=""
-        read -a a <<<"$line"
-        for x in "${a[@]}"; do
-            [[ $x =~ ^[0-9a-f]{12}$ || $x =~ ^[0-9a-f]{64}$ ]] && ID=$x && break
-        done
-        if [[ $ID ]] && LAYERS=$(exec 2>/dev/null && docker inspect "$ID" --format '{{.GraphDriver.Data.UpperDir}}:{{.GraphDriver.Data.LowerDir}}' | tr ':' '\n' | grep --color=no /); then
-            for layer in $LAYERS; do
-                echo "  layer: $layer"
-            done
-        fi
+  while IFS='' read -r line; do
+    echo "$line"
+    [[ $line =~ ^"  "[a-z]+:$ ]] && continue
+    ID=""
+    read -a a <<<"$line"
+    for x in "${a[@]}"; do
+      [[ $x =~ ^[0-9a-f]{12}$ || $x =~ ^[0-9a-f]{64}$ ]] && ID=$x && break
     done
+    if [[ $ID ]] && LAYERS=$(exec 2>/dev/null && docker inspect "$ID" --format '{{.GraphDriver.Data.UpperDir}}:{{.GraphDriver.Data.LowerDir}}' | tr ':' '\n' | grep --color=no /); then
+      for layer in $LAYERS; do
+        echo "  layer: $layer"
+      done
+    fi
+  done
 fi

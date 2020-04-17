@@ -2,69 +2,79 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-    >&2 echo "Run a privileged tool container in host's namespaces(pid,net,ipc,user)."
-    >&2 echo ""
-    >&2 echo "Usage:"
-    >&2 echo "  ${0##*/} [OPTIONS] [CMD [ARGS...]]"
-    >&2 echo ""
-    >&2 echo "OPTIONS:"
-    >&2 echo "  -i, --interactive                    Keep STDIN open even if not attached"
-    >&2 echo "  -t, --tty                            Allocate a pseudo-TTY"
-    >&2 echo ""
-    >&2 echo "Note:"
-    >&2 echo "  - If no any argument specified, it will run an interactive /bin/bash (implies '-i' and '-t')."
-    >&2 echo ""
-    exit 1
+  >&2 echo "Run a privileged tool container in host's namespaces(pid,net,ipc,user)."
+  >&2 echo ""
+  >&2 echo "Usage:"
+  >&2 echo "  ${0##*/} [OPTIONS] [CMD [ARGS...]]"
+  >&2 echo ""
+  >&2 echo "OPTIONS:"
+  >&2 echo "  -i, --interactive                    Keep STDIN open even if not attached"
+  >&2 echo "  -t, --tty                            Allocate a pseudo-TTY"
+  >&2 echo ""
+  >&2 echo "Note:"
+  >&2 echo "  - If no any argument specified, it will run an interactive /bin/bash (implies '-i' and '-t')."
+  >&2 echo ""
+  exit 1
 }
 
 OPT_INTERACTIVE=""; OPT_TTY=""
 
 while [[ $# -gt 0 ]]; do
-    case $1 in
-    -i|--interactive)
-            OPT_INTERACTIVE=$1
-            ;;
-    -t|--tty)
-            OPT_TTY=$1
-            ;;
-    --*)
-            show_usage
-            ;;
-    -*i*|-*t*)
-            [[ $1 == *i* ]] && OPT_INTERACTIVE=-i
-            [[ $1 == *t* ]] && OPT_TTY=-t
-            [[ ! $1 =~ ^-[it]+$ ]] && show_usage
-            ;;
-    -*)
-            show_usage
-            ;;
-    *)
-            break
-            ;;
-    esac
-    shift
+  case $1 in
+  -i|--interactive)
+      OPT_INTERACTIVE=$1
+      ;;
+  -t|--tty)
+      OPT_TTY=$1
+      ;;
+  --*)
+      show_usage
+      ;;
+  -*i*|-*t*)
+      [[ $1 == *i* ]] && OPT_INTERACTIVE=-i
+      [[ $1 == *t* ]] && OPT_TTY=-t
+      [[ ! $1 =~ ^-[it]+$ ]] && show_usage
+      ;;
+  -*)
+      show_usage
+      ;;
+  *)
+      break
+      ;;
+  esac
+  shift
 done
 
 if [[ $# == 0 && ! $OPT_INTERACTIVE && ! $OPT_TTY ]]; then
-    OPT_INTERACTIVE=-i
-    OPT_TTY=-t
+  OPT_INTERACTIVE=-i
+  OPT_TTY=-t
 fi
 
 # Notes:
 # - The --hostname=GEEK is for showing hostname as an indicator of the special container.
 # - The --add-host GEEK:127.0.0.1 is for avoiding sudo from warning about host can not be resolved.
 # - The -v /var/lib/docker:/var/lib/docker:rshared is for bind-mounting across containers later
+# - The -v $DOCKER_SOCK_PATH:/var/run/docker.sock is for using docker client in the docker-geek
+# - The -v $DOCKER_PID_PATH:/var/run/docker.pid is for getting dockerd's pid in the docker-geek
 
 # todo: add geek to unlimted cgroup
 # todo: support --name NAME to start a new named instance or exec in existing instance
 
+if docker info | grep -F 'Operating System: Docker Desktop' >/dev/null; then
+  DOCKER_SOCK_PATH=/run/desktop/docker.sock
+  DOCKER_PID_PATH=/run/desktop/docker.pid
+else
+  DOCKER_SOCK_PATH=/var/run/docker.sock
+  DOCKER_PID_PATH=/var/run/docker.pid
+fi
+
 exec docker run --rm $OPT_INTERACTIVE $OPT_TTY \
-    --privileged --userns=host \
-    --pid=host --network=host --ipc=host \
-    --hostname=GEEK --add-host GEEK:127.0.0.1 \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v /var/run/docker.pid:/var/run/docker.pid \
-    -v /var/lib/docker:/var/lib/docker:rshared \
-    -v /:/host-rootfs \
-    $DOCKER_GEEK_OPTS \
-    osexp2000/docker-geek "$@"
+  --privileged --userns=host \
+  --pid=host --network=host --ipc=host \
+  --hostname=GEEK --add-host GEEK:127.0.0.1 \
+  -v $DOCKER_SOCK_PATH:/var/run/docker.sock \
+  -v $DOCKER_PID_PATH:/var/run/docker.pid \
+  -v /var/lib/docker:/var/lib/docker:rshared \
+  -v /:/host-rootfs \
+  $DOCKER_GEEK_OPTS \
+  osexp2000/docker-geek "$@"

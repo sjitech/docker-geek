@@ -1,0 +1,70 @@
+#!/bin/bash
+set -o errexit -o pipefail
+
+function show_usage() {
+  >&2 echo "Show capability of a process."
+  >&2 echo ""
+  >&2 echo "Usage:"
+  >&2 echo "  ${0##*/} [OPTIONS] [MODE] <PID|self>"
+  >&2 echo ""
+  >&2 echo "OPTIONS:"
+  >&2 echo "  --CapEff              Effective capability"
+  >&2 echo "  --CapPrm              Permitted capability"
+  >&2 echo "  --CapBnd              Bound capability"
+  >&2 echo "  --CapAmb              Ambient capability"
+  >&2 echo ""
+  >&2 echo "      --no-sort         Show names without sort"
+  >&2 echo ""
+  >&2 echo "MODE:"
+  >&2 echo "  -n, --value           Only show hexadecimal value instead of name"
+  >&2 echo "  -f, --full            Show value=[name name ...] in one line"
+  >&2 echo ""
+  >&2 echo "Note:"
+  >&2 echo "  - Default OPTIONS is '--CapEff'."
+  >&2 echo "  - By default, it output sorted names in multiline."
+  >&2 echo ""
+  exit 1
+}
+
+PID=""; CAP_PATTERN="CapEff:"; MODE=""; NO_SORT=""
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+  --CapEff|--CapPrm|--CapBnd|--CapAmb)
+      CAP_PATTERN="${1#--}:"
+      ;;
+  -n|--value)
+      MODE=--value
+      ;;
+  -f|--full)
+      MODE=--full
+      ;;
+  --no-sort)
+      NO_SORT=$1
+      ;;
+  -*)
+      show_usage
+      ;;
+  *)
+      PID=$1
+      ;;
+  esac
+  shift
+done
+
+[[ ! $PID ]] && show_usage
+[[ ! $PID =~ ^[0-9]+$ && $PID != self ]] && { >&2 echo "${0##*/}: Invalid PID '$PID'. Must be decimal or self"; exit 1; }
+
+HEX_CAP=$(cat /proc/$PID/status)
+#remove all string until this pattern(included), then split result into an array,
+#the first element of an array become the wanted value, it can be just referenced by $array
+HEX_CAP=(${HEX_CAP##**$CAP_PATTERN})
+
+if [[ $MODE == --value ]]; then
+  echo $HEX_CAP
+elif [[ $MODE == --full ]]; then
+  NAMES=($(cap-decode $NO_SORT $HEX_CAP))
+  echo "$HEX_CAP=[${NAMES[@]}]"
+else
+  exec cap-decode $NO_SORT $HEX_CAP
+fi

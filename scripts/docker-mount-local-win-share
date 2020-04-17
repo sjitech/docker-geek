@@ -2,17 +2,17 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-    >&2 echo "Persistently mount a local Windows share to /mnt/<SHARE_NAME>"
-    >&2 echo ""
-    >&2 echo "Usage:"
-    >&2 echo "  ${0##*/} SHARE_NAME USER DOMAIN"
-    >&2 echo ""
-    >&2 echo "Note: you will be prompted to input password"
-    >&2 echo ""
-    >&2 echo "Example:"
-    >&2 echo "  - ${0##*/} 'C$' user domain"
-    >&2 echo ""
-    exit 1
+  >&2 echo "Persistently mount a local Windows share to /mnt/<SHARE_NAME>"
+  >&2 echo ""
+  >&2 echo "Usage:"
+  >&2 echo "  ${0##*/} SHARE_NAME USER DOMAIN"
+  >&2 echo ""
+  >&2 echo "Note: you will be prompted to input password"
+  >&2 echo ""
+  >&2 echo "Example:"
+  >&2 echo "  - ${0##*/} 'C$' user domain"
+  >&2 echo ""
+  exit 1
 }
 
 [[ ! $1 || $1 == --help ]] && show_usage
@@ -22,26 +22,25 @@ function show_usage() {
 MOUNT_POINT=/mnt/$1
 
 if [[ $IS_DOCKER_GEEK ]]; then
-    mkdir -p "$MOUNT_POINT"
-    ip=$(dig +short host.docker.internal)
-    [[ ! $ip ]] && { >&2 echo "can not resolve host.docker.internal"; exit 1; }
-    mount -t cifs "//$ip/$1" "$MOUNT_POINT" -o user="$2",dom="$3"
+  mkdir -p "$MOUNT_POINT"
+  ip=$(dig +short host.docker.internal)
+  [[ ! $ip ]] && { >&2 echo "can not resolve host.docker.internal"; exit 1; }
+  mount -t cifs "//$ip/$1" "$MOUNT_POINT" -o user="$2",dom="$3"
 else
-    # Enter host namespace to do mount. The reason use nsenter-dockerd is that
-    # it definitely contains proper mount util and sh related stuff.
-    #
-    # Notes:
-    # - The --network=host --ipc=host --uts=host are optional, just for launching container faster
+  # Enter host namespace to do mount. The reason use nsenter-dockerd is that
+  # it definitely contains proper mount util and sh related stuff.
+  #
+  # Notes:
+  # - The --network=host --ipc=host --uts=host are optional, just for launching container faster
 
-    docker run --rm -it \
-        --privileged --userns=host \
-        --pid=host --network=host --ipc=host --uts=host \
-        -v /var/run/docker.pid:/var/run/docker.pid \
-        osexp2000/nsenter-dockerd sh -c \
-            'mkdir -p "$1" && \
-            ip=`nslookup host.docker.internal 127.0.0.1 |grep Address |awk '"'"'{print $3}'"'"' |tail -1 |grep -vF 127.0.0.1` && \
-            [ -n "$ip" ] && mount -t cifs //$ip/"$2" "$1" -o user="$3",dom="$4"' \
-                -- "$MOUNT_POINT" "$@"
+  docker run --rm -it \
+    --privileged --userns=host \
+    --pid=host --network=host --ipc=host --uts=host \
+    docker4w/nsenter-dockerd /bin/sh -c \
+      'mkdir -p "$1" && \
+      ip=`nslookup host.docker.internal 127.0.0.1 |grep Address |awk '"'"'{print $3}'"'"' |tail -1 |grep -vF 127.0.0.1` && \
+      [ -n "$ip" ] && mount -t cifs //$ip/"$2" "$1" -o user="$3",dom="$4"' \
+        -- "$MOUNT_POINT" "$@"
 fi
 
 >&2 echo mounted at "$MOUNT_POINT"

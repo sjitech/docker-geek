@@ -1,0 +1,62 @@
+#!/bin/bash
+set -o errexit -o pipefail
+
+function show_usage() {
+  >&2 echo "Show name of a hexadecimal capability."
+  >&2 echo ""
+  >&2 echo "Usage:"
+  >&2 echo "  ${0##*/} [OPTIONS] HEX_CAP"
+  >&2 echo ""
+  >&2 echo "OPTIONS:"
+  >&2 echo "      --no-sort         Show names without sort"
+  >&2 echo ""
+  >&2 echo "Note:"
+  >&2 echo "  - By default, it output sorted names in multiline."
+  >&2 echo ""
+  >&2 echo "Example:"
+  >&2 echo "  - ${0##*/} ffffffffffffffff"
+  >&2 echo "  - ${0##*/} 0x0000003fffffffff"
+  >&2 echo ""
+  exit 1
+}
+
+HEX_CAP=""; NO_SORT=""
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+  --no-sort)
+      NO_SORT=$1
+      ;;
+  -*)
+      show_usage
+      ;;
+  *)
+      HEX_CAP=$1
+      ;;
+  esac
+  shift
+done
+
+[[ ! $HEX_CAP ]] && show_usage
+[[ ! $HEX_CAP =~ ^[0-9a-fA-F]+$ && ! $HEX_CAP =~ ^0x[0-9a-fA-F]+$ ]] && { >&2 echo "${0##*/}: Invalid hexadecimal '$HEX_CAP'"; exit 1; }
+
+# Example output of capsh: 0x0000002000000003=cap_chown,cap_dac_override,37
+# split the output by '=' ',', extract sub array start from second item.
+IFS="=," NAMES=($(capsh --decode="$HEX_CAP"))
+NAMES=("${NAMES[@]:1}")
+
+_NAMES=()
+for name in "${NAMES[@]}"; do
+  if [[ $name == 37 ]]; then
+    _NAMES+=(AUDIT_READ)
+  else
+    declare -u uppercase=${name#cap_};
+    _NAMES+=("$uppercase")
+  fi
+done
+
+if [[ $NO_SORT ]]; then
+  for name in "${_NAMES[@]}"; do echo $name; done
+else
+  { for name in "${_NAMES[@]}"; do echo $name; done; } | sort
+fi

@@ -29,28 +29,32 @@ Let's start the workbench so from there you can further run other commands of th
 *For Bash:*
 ```
 docker run --rm -it \
-    --privileged --userns=host \
-    --pid=host --network=host --ipc=host \
-    --hostname=GEEK --add-host GEEK:127.0.0.1 \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v /var/run/docker.pid:/var/run/docker.pid \
-    -v /var/lib/docker:/var/lib/docker:rshared \
-    -v /:/host-rootfs \
-    --workdir /host-rootfs \
-    osexp2000/docker-geek
+  --privileged --userns=host \
+  --pid=host --network=host --ipc=host \
+  --hostname=GEEK --add-host GEEK:127.0.0.1 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /var/run/docker.pid:/var/run/docker.pid \
+  -v /var/lib/docker:/var/lib/docker:rshared \
+  -v /:/host-rootfs \
+  --workdir /host-rootfs \
+  osexp2000/docker-geek
 ```
+Note: if you are using Docker desktop, please replace 
+- `/var/run/docker.sock:` to `/run/desktop/docker.sock:`
+- `/var/run/docker.pid:` to `/run/desktop/docker.pid:`
+
 *For Windows Cmd:*
 ```
 docker run --rm -it ^
-    --privileged --userns=host ^
-    --pid=host --network=host --ipc=host ^
-    --hostname=GEEK --add-host GEEK:127.0.0.1 ^
-    -v /var/run/docker.sock:/var/run/docker.sock ^
-    -v /var/run/docker.pid:/var/run/docker.pid ^
-    -v /var/lib/docker:/var/lib/docker:rshared ^
-    -v /:/host-rootfs ^
-    --workdir /host-rootfs ^
-    osexp2000/docker-geek
+  --privileged --userns=host ^
+  --pid=host --network=host --ipc=host ^
+  --hostname=GEEK --add-host GEEK:127.0.0.1 ^
+  -v /run/desktop/docker.sock:/var/run/docker.sock ^
+  -v /run/desktop/docker.pid:/var/run/docker.pid ^
+  -v /var/lib/docker:/var/lib/docker:rshared ^
+  -v /:/host-rootfs ^
+  --workdir /host-rootfs ^
+  osexp2000/docker-geek
 ```
 Then you got a workbench with workding dir pointing to rootfs of the host.
 ```
@@ -73,7 +77,7 @@ docker-image-geek
 docker-mount-image
 docker-mount-cifs
 docker-mount-local-win-share
-docker-bind-mount
+docker-mount
 
 docker-umount
 
@@ -231,25 +235,25 @@ opensnoop        17609   0x3 /etc/ld.so.cache
 
 Then you use grep to filter out things of target container.
 
-### `docker-bind-mount` bind-mount files into a container or among container and host
+### `docker-mount` bind-mount files into a container or among container and host
 
 sometimes you forgot to configure volume mount for a container and just started the container, 
 for some reason, you might want to mount some files into it.
 
 ```
-docker-bind-mount [OPTIONS] [CONTAINER:]SOURCE_PATH [CONTAINER:]TARGET_PATH
+docker-mount [OPTIONS] [CONTAINER:]SOURCE_PATH [CONTAINER:]TARGET_PATH
 ```
 you want to map second containers cae89cdb65cd's /dir1 to first's /xxx
 ```
-$ docker-bind-mount CONTAINER_ID1:/dir1 CONTAINER_ID2:/xxx
+$ docker-mount CONTAINER_ID1:/dir1 CONTAINER_ID2:/xxx
 ```
 
 You can also mount file or dir from a container to a host or reverse
 ```
-docker-bind-mount CONTAINER_ID_OR_NAME:/CONTAINER_DIR /HOST_DIR
+docker-mount CONTAINER_ID_OR_NAME:/CONTAINER_DIR /HOST_DIR
 ```
 ```
-docker-bind-mount /HOST_DIR CONTAINER_ID_OR_NAME:/CONTAINER_DIR
+docker-mount /HOST_DIR CONTAINER_ID_OR_NAME:/CONTAINER_DIR
 ```
 
 ### `docker-mount-image`: Persistently mount a docker image or container as readonly
@@ -306,8 +310,8 @@ enter dockerd's all namespaces.
 ```
 $ docker-host
 linuxkit-025000000001:/# ls
-Users	 bin  etc   lib       libau.so.2    media  opt	 private  root	sbin	    srv  tmp  var
-Volumes  dev  home  libau.so  libau.so.2.9  mnt    port  proc	  run	sendtohost  sys  usr
+Users   bin  etc   lib       libau.so.2    media  opt   private  root  sbin      srv  tmp  var
+Volumes  dev  home  libau.so  libau.so.2.9  mnt    port  proc    run  sendtohost  sys  usr
 linuxkit-025000000001:/#
 linuxkit-025000000001:/# which crictl docker mount.cifs
 /usr/bin/crictl
@@ -430,19 +434,19 @@ E.g., You have a running container ID 17c5d7eafa20, you want to vi its file /som
 
 - Method1: via **MOUNTED_CONTAINER_DIR** prefix
 
-    ```
-    $ docker container inspect -f '{{.GraphDriver.Data.MergedDir}}' 17c5d7eafa20
-    /var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d/merged
-    $ vi /var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d/merged/some_dir/some_file
-    ```
+  ```
+  $ docker container inspect -f '{{.GraphDriver.Data.MergedDir}}' 17c5d7eafa20
+  /var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d/merged
+  $ vi /var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d/merged/some_dir/some_file
+  ```
 
 - Method2: via `/proc/CONTAINER_PID/root/` prefix
 
-    ```
-    $ docker inspect -f '{{.State.Pid}}' cae89cdb65cd
-    2788
-    $ vi /proc/2788/root/some_dir/some_file
-    ```
+  ```
+  $ docker inspect -f '{{.State.Pid}}' cae89cdb65cd
+  2788
+  $ vi /proc/2788/root/some_dir/some_file
+  ```
 
 Note: /proc/CONTAINER_PID/root/ is not a cwd-able dir thus it will cause some tool complains about "(unreachable)"
 
