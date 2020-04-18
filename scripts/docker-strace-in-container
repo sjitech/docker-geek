@@ -1,6 +1,8 @@
 #!/bin/bash
 set -o errexit -o pipefail
 
+[[ ! $IS_DOCKER_GEEK ]] && exec docker-geek --interactive --tty "${0##*/}" "$@"
+
 function show_usage() {
   >&2 echo "Run a program in a container and trace its syscalls."
   >&2 echo ""
@@ -17,40 +19,27 @@ function show_usage() {
   exit 1
 }
 
-ID=""
-
 OPTS=()
 
-while [[ $# -gt 0 ]]; do
+while [[ $# > 0 ]]; do
   case $1 in
   --help)
-      show_usage
-      ;;
+    show_usage
+    ;;
   -*)
-      OPTS+=("$1")
-      ;;
+    OPTS+=("$1")
+    ;;
   *)
-      ID=$1
-      shift
-      break
-      ;;
+    break
+    ;;
   esac
   shift
 done
 
-[[ ! $ID ]] && show_usage
+ID=${1:?${0##*/}: require next argument as an id or name of an container}; shift
 
 [[ $# == 0 ]] && show_usage
 
 PID=$(docker-pid-of-container "$ID")
 
-[[ $IS_DOCKER_GEEK ]] && exec strace "${OPTS[@]}" -f nsenter --target=$PID --all -- "$@"
-
-# Notes:
-# - The --network=host --ipc=host --uts=host are optional, just for launching container faster
-
-exec docker run --rm -it \
-  --cap-add=SYS_PTRACE --cap-add=SYS_ADMIN --userns=host \
-  --pid=host --network=host --ipc=host --uts=host \
-  osexp2000/docker-geek \
-    strace "${OPTS[@]}" -f nsenter --target=$PID --all -- "$@"
+exec strace "${OPTS[@]}" -f nsenter --target=$PID --all -- "$@"

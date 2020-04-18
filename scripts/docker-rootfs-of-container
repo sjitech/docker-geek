@@ -16,33 +16,21 @@ function show_usage() {
   exit 1
 }
 
-ID=""
-
-while [[ $# -gt 0 ]]; do
+while [[ $# > 0 ]]; do
   case $1 in
   -*)
-      show_usage
-      ;;
+    show_usage
+    ;;
   *)
-      ID=$1
-      ;;
+    break
+    ;;
   esac
   shift
 done
 
-if [[ $ID == . ]]; then
-  mnt="$(readlink /proc/self/ns/mnt || echo)"
-  if [[ $mnt ]]; then
-    while read pid rootfs; do
-      if [[ "$(readlink /proc/$pid/ns/mnt)" == "$mnt" ]]; then
-        echo $rootfs
-        exit 0
-      fi
-    done < <(docker ps -q | xargs docker container inspect --format '{{.State.Pid}} {{.GraphDriver.Data.MergedDir}}')
-  fi
-  >&2 echo "${0##*/}: I am not inside a container"
-  exit 1
-elif [[ $ID ]]; then
+ID=$1
+
+if [[ $ID ]]; then
   exec docker container inspect -f '{{.GraphDriver.Data.MergedDir}}' "$ID"
 else
   while IFS='' read -r line; do

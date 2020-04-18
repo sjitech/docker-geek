@@ -2,45 +2,42 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-  >&2 echo "Unmount a dir or file in the host or a running container."
-  >&2 echo ""
-  >&2 echo "Usage:"
-  >&2 echo "  ${0##*/} MOUNT_POINT"
-  >&2 echo "  ${0##*/} CONTAINER_ID_OR_NAME MOUNT_POINT"
-  >&2 echo "  ${0##*/} CONTAINER_ID_OR_NAME:MOUNT_POINT"
-  >&2 echo ""
-  >&2 echo "MOUNT_POINT:"
-  >&2 echo "  The mounted dir or file"
-  >&2 echo ""
-  exit 1
+    >&2 echo "Unmount a dir in the host or a running container."
+    >&2 echo ""
+    >&2 echo "Usage:"
+    >&2 echo "  ${0##*/} MOUNT_POINT"
+    >&2 echo "  ${0##*/} CONTAINER_ID_OR_NAME MOUNT_POINT"
+    >&2 echo "  ${0##*/} CONTAINER_ID_OR_NAME:MOUNT_POINT"
+    >&2 echo ""
+    exit 1
 }
 
 [[ ! $1 || $1 == --help ]] && show_usage
 
 if [[ $2 ]]; then
-  ID=$1
-  MOUNT_POINT=$2
+    ID=$1
+    MOUNT_POINT=$2
 elif [[ $1 == *:* ]]; then
-  ID=${1%%:*}
-  MOUNT_POINT=${1#*:}
+    ID=${1%%:*}
+    MOUNT_POINT=${1#*:}
 else
-  ID=""
-  MOUNT_POINT=$1
+    ID=""
+    MOUNT_POINT=$1
 fi
 
-[[ $MOUNT_POINT != /* ]] && { >&2 echo "${0##*/}: mount point must start with /"; exit 1; }
+[[ ! $MOUNT_POINT ]] && show_usage
+
+[[ $ID && $MOUNT_POINT != /* ]] && { >&2 echo "${0##*/}: the mount point must not be a relative path when it is for a container.."; exit 1; }
+
+if [[ ! $IS_DOCKER_GEEK && ! $ID ]]; then
+  [[ $MOUNT_POINT != /* ]] && { >&2 echo "${0##*/}: when running this command from outside of docker-geek, the mount point on the host must not be a relative path."; exit 1; }
+  [[ $MOUNT_POINT != /var/lib/docker/* ]] && { >&2 echo "${0##*/}: when running this command from outside of docker-geek, the mount point on the host must not be outside of /var/lib/docker, otherwise it will have no effect to the host side."; exit 1; }
+fi
 
 ROOTFS=""; [[ $ID ]] && ROOTFS=$(docker-rootfs-of-container "$ID")
 
-[[ $IS_DOCKER_GEEK ]] && exec umount --recursive "$ROOTFS$MOUNT_POINT"
-
-# Enter the host's namespace to do umount. The reason use nsenter-dockerd is that
-# it definitely contains proper umount util.
-#
-# Notes:
-# - The --network=host --ipc=host --uts=host are optional, just for launching container faster
-
-exec docker run --rm \
-  --privileged --userns=host \
-  --pid=host --network=host --ipc=host --uts=host \
-  docker4w/nsenter-dockerd /bin/umount --recursive "$ROOTFS$MOUNT_POINT"
+if [[ $IS_DOCKER_GEEK ]]; then
+  exec umount --recursive "$ROOTFS$MOUNT_POINT"
+else
+  exec docker-geek umount --recursive "$ROOTFS$MOUNT_POINT"
+fi

@@ -5,7 +5,7 @@ function show_usage() {
   >&2 echo "Show capability of a process."
   >&2 echo ""
   >&2 echo "Usage:"
-  >&2 echo "  ${0##*/} [OPTIONS] [MODE] <PID|self>"
+  >&2 echo "  ${0##*/} [OPTIONS] [PID]"
   >&2 echo ""
   >&2 echo "OPTIONS:"
   >&2 echo "  --CapEff              Effective capability"
@@ -15,7 +15,6 @@ function show_usage() {
   >&2 echo ""
   >&2 echo "  --no-sort             Show names without sort"
   >&2 echo ""
-  >&2 echo "MODE:"
   >&2 echo "  -n, --value           Only show hexadecimal value instead of name"
   >&2 echo "  -f, --full            Show value=[name name ...] in one line"
   >&2 echo ""
@@ -26,34 +25,36 @@ function show_usage() {
   exit 1
 }
 
-PID=""; CAP_PATTERN="CapEff:"; MODE=""; NO_SORT=""
+CAP_PATTERN="CapEff:"; MODE=""; NO_SORT=""
 
-while [[ $# -gt 0 ]]; do
+while [[ $# > 0 ]]; do
   case $1 in
   --CapEff|--CapPrm|--CapBnd|--CapAmb)
-      CAP_PATTERN="${1#--}:"
-      ;;
+    CAP_PATTERN="${1#--}:"
+    ;;
   -n|--value)
-      MODE=--value
-      ;;
+    MODE=--value
+    ;;
   -f|--full)
-      MODE=--full
-      ;;
+    MODE=--full
+    ;;
   --no-sort)
-      NO_SORT=$1
-      ;;
+    NO_SORT=$1
+    ;;
   -*)
-      show_usage
-      ;;
+    show_usage
+    ;;
   *)
-      PID=$1
-      ;;
+    break
+    ;;
   esac
   shift
 done
 
-[[ ! $PID ]] && show_usage
-[[ ! $PID =~ ^[0-9]+$ && $PID != self ]] && { >&2 echo "${0##*/}: Invalid PID '$PID'. Must be decimal or self"; exit 1; }
+PID=$1
+
+[[ $PID && ! $PID =~ ^[0-9]+$ && $PID != self ]] && { >&2 echo "${0##*/}: Invalid PID '$PID'. Must be decimal or self"; exit 1; }
+[[ ! $PID ]] && PID=self
 
 HEX_CAP=$(cat /proc/$PID/status)
 #remove all string until this pattern(included), then split result into an array,

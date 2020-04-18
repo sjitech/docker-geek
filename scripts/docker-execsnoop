@@ -1,15 +1,6 @@
 #!/bin/bash
 
-if [[ $IS_DOCKER_GEEK ]]; then
-  [[ -e /sys/kernel/debug/tracing ]] || mount -t debugfs debugfs /sys/kernel/debug
-  exec execsnoop "$@"
-fi
+[[ ! $IS_DOCKER_GEEK ]] && exec docker-geek --interactive --tty "${0##*/}" "$@"
 
-# Notes:
-# - The -i option to ensure Ctl+C can be passed to inner process
-# - The --network=host --ipc=host --uts=host are optional, just for launching container faster
-
-exec docker run --rm -it \
-  --privileged --userns=host \
-  --pid=host --network=host --ipc=host --uts=host \
-  osexp2000/docker-geek bash -c 'mount -t debugfs debugfs /sys/kernel/debug && execsnoop "$@"' -- "$@"
+[[ -e /sys/kernel/debug/tracing ]] || mount -t debugfs debugfs /sys/kernel/debug
+exec execsnoop "$@"

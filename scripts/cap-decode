@@ -20,24 +20,25 @@ function show_usage() {
   exit 1
 }
 
-HEX_CAP=""; NO_SORT=""
+NO_SORT=""
 
-while [[ $# -gt 0 ]]; do
+while [[ $# > 0 ]]; do
   case $1 in
   --no-sort)
-      NO_SORT=$1
-      ;;
+    NO_SORT=$1
+    ;;
   -*)
-      show_usage
-      ;;
+    show_usage
+    ;;
   *)
-      HEX_CAP=$1
-      ;;
+    break
+    ;;
   esac
   shift
 done
 
-[[ ! $HEX_CAP ]] && show_usage
+HEX_CAP=${1:?${0##*/}: require next argument as a hexidecimal digit of capabilities}; shift
+
 [[ ! $HEX_CAP =~ ^[0-9a-fA-F]+$ && ! $HEX_CAP =~ ^0x[0-9a-fA-F]+$ ]] && { >&2 echo "${0##*/}: Invalid hexadecimal '$HEX_CAP'"; exit 1; }
 
 # Example output of capsh: 0x0000002000000003=cap_chown,cap_dac_override,37

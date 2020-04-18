@@ -5,8 +5,8 @@ function show_usage() {
   >&2 echo "Show capability of the init process of a container."
   >&2 echo ""
   >&2 echo "Usage:"
-  >&2 echo "  ${0##*/} [OPTIONS] [MODE] [CONTAINER_ID_OR_NAME]"
-  >&2 echo "  docker ps | ${0##*/} [OPTIONS] [MODE]"
+  >&2 echo "  ${0##*/} [OPTIONS] [CONTAINER_ID_OR_NAME]"
+  >&2 echo "  docker ps | ${0##*/} [OPTIONS]"
   >&2 echo ""
   >&2 echo "OPTIONS:"
   >&2 echo "  --CapEff              Effective capability"
@@ -16,7 +16,6 @@ function show_usage() {
   >&2 echo ""
   >&2 echo "  --no-sort             Show names without sort"
   >&2 echo ""
-  >&2 echo "MODE:"
   >&2 echo "  -n, --value           Only show hexadecimal value instead of name"
   >&2 echo "  -f, --full            Show value=[name name ...] in one line"
   >&2 echo ""
@@ -30,29 +29,31 @@ function show_usage() {
   exit 1
 }
 
-ID=""; OPTS=()
+OPTS=()
 
-while [[ $# -gt 0 ]]; do
+while [[ $# > 0 ]]; do
   case $1 in
   --CapEff|--CapPrm|--CapBnd|--CapAmb|-n|--value|-f|--full|--no-sort)
-      OPTS+=($1)
-      ;;
+    OPTS+=($1)
+    ;;
   -*)
-      show_usage
-      ;;
+    show_usage
+    ;;
   *)
-      ID=$1
-      ;;
+    break
+    ;;
   esac
   shift
 done
+
+ID=$1
 
 if [[ $ID ]]; then
   PID=$(docker-pid-of-container "$ID")
   [[ ! $IS_DOCKER_GEEK ]] && exec docker-geek cap-of-proc ${OPTS[@]} $PID
   exec cap-of-proc ${OPTS[@]} $PID
 else
-  [[ ! $IS_DOCKER_GEEK ]] && exec docker-geek -i ${0##*/} ${OPTS[@]}
+  [[ ! $IS_DOCKER_GEEK ]] && exec docker-geek --interactive ${0##*/} ${OPTS[@]}
   while IFS='' read -r line; do
     echo "$line"
     [[ $line =~ ^"  "[a-z]+:$ ]] && continue
@@ -62,7 +63,7 @@ else
       [[ $x =~ ^[0-9a-f]{12}$ || $x =~ ^[0-9a-f]{64}$ ]] && ID=$x && break
     done
     if [[ $ID ]] && PID=$(docker-pid-of-container "$ID" 2>/dev/null) \
-      && CAP=($(cap-of-proc ${OPTS[@]} $PID 2>/dev/null)); then
+    && CAP=($(cap-of-proc ${OPTS[@]} $PID 2>/dev/null)); then
       echo "  cap: ${CAP[@]}"
     fi
   done

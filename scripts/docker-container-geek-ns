@@ -2,11 +2,10 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-  >&2 echo "Start a docker-geek in which map a container's rootfs to /rootfs and switch to "
-  >&2 echo "target container's network namespace."
+  >&2 echo "Start a docker-geek in which mount a container to /rootfs and switch to its network namespace."
   >&2 echo ""
   >&2 echo "Usage:"
-  >&2 echo "  ${0##*/} [OPTIONS] CONTAINER_ID_OR_NAME [CMD [ARGS...]]"
+  >&2 echo "  ${0##*/} [OPTIONS] CONTAINER_ID_OR_NAME [COMMAND [ARGS...]]"
   >&2 echo ""
   >&2 echo "OPTIONS:"
   >&2 echo "  -i, --interactive                    Keep STDIN open even if not attached"
@@ -14,76 +13,46 @@ function show_usage() {
   >&2 echo ""
   >&2 echo "Note:"
   >&2 echo "  - If no any argument specified, it will run an interactive /bin/bash (implies '-i' and '-t')."
+  >&2 echo "  - You can pass extra docker run option via env var DOCKER_GEEK_OPTION"
   >&2 echo ""
   exit 1
 }
 
-ID=""
-
 OPT_INTERACTIVE=""; OPT_TTY=""
 
-while [[ $# -gt 0 ]]; do
+while [[ $# > 0 ]]; do
   case $1 in
   -i|--interactive)
-      OPT_INTERACTIVE=$1
-      ;;
+    OPT_INTERACTIVE=$1
+    ;;
   -t|--tty)
-      OPT_TTY=$1
-      ;;
-  --*)
-      show_usage
-      ;;
-  -*i*|-*t*)
-      [[ $1 == *i* ]] && OPT_INTERACTIVE=-i
-      [[ $1 == *t* ]] && OPT_TTY=-t
-      [[ ! $1 =~ ^-[it]+$ ]] && show_usage
-      ;;
+    OPT_TTY=$1
+    ;;
   -*)
-      show_usage
-      ;;
+    [[ ! $1 =~ ^-[it]+$ ]] && show_usage
+    [[ $1 == *i* ]] && OPT_INTERACTIVE=-i
+    [[ $1 == *t* ]] && OPT_TTY=-t
+    ;;
   *)
-      ID=$1
-      shift
-      break
-      ;;
+    break
+    ;;
   esac
   shift
 done
+
+ID=${1:?${0##*/}: require next argument as an id or name of an container}; shift
 
 if [[ $# == 0 && ! $OPT_INTERACTIVE && ! $OPT_TTY ]]; then
   OPT_INTERACTIVE=-i
   OPT_TTY=-t
 fi
 
-[[ ! $ID ]] && show_usage
-
 PID=$(docker-pid-of-container "$ID")
 
 ROOTFS=$(docker-rootfs-of-container "$ID")
 
-# Notes:
-# - The -v /var/lib/docker:/var/lib/docker:rshared is for bind-mounting across containers later
-# - The -v $DOCKER_SOCK_PATH:/var/run/docker.sock is for using docker client in the docker-geek
-# - The -v $DOCKER_PID_PATH:/var/run/docker.pid is for getting dockerd's pid in the docker-geek
-# - There is no --uts-container:$ID available, but --network=container:$ID will use host name of the container
-# - The --pid=container:$ID will also mount /proc properly
+[[ ! $ID =~ ^[0-9a-f]{12}$ && ! $ID =~ ^[0-9a-f]{64}$ ]] && ID=$(docker container inspect -f '{{.ID}}' "$ID")
 
-if docker info | grep -F 'Operating System: Docker Desktop' >/dev/null; then
-  DOCKER_SOCK_PATH=/run/desktop/docker.sock
-  DOCKER_PID_PATH=/run/desktop/docker.pid
-else
-  DOCKER_SOCK_PATH=/var/run/docker.sock
-  DOCKER_PID_PATH=/var/run/docker.pid
-fi
-
-exec docker run --rm $OPT_INTERACTIVE $OPT_TTY \
-  --privileged --userns=host \
-  --pid=container:$ID --network=container:$ID --ipc=container:$ID \
-  -v $DOCKER_SOCK_PATH:/var/run/docker.sock \
-  -v $DOCKER_PID_PATH:/var/run/docker.pid \
-  -v /var/lib/docker:/var/lib/docker:rshared \
-  -v /:/host-rootfs \
-  -v $ROOTFS:/rootfs \
-  --workdir="/rootfs" \
-  $DOCKER_CONTAINER_GEEK_NS_OPTS \
-  osexp2000/docker-geek "$@"
+export DOCKER_GEEK_NETWORK_NS="--network=container:$ID"
+export DOCKER_GEEK_OPTION="$DOCKER_GEEK_OPTION -v $ROOTFS:/rootfs --workdir=/rootfs"
+exec docker-geek $OPT_INTERACTIVE $OPT_TTY "$@"

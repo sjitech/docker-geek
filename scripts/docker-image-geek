@@ -2,105 +2,65 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-  >&2 echo "Start a docker-geek in which mount an image or container to /rootfs as readonly."
+  >&2 echo "Start a docker-geek in which mount an image to /rootfs (as readonly by default)."
   >&2 echo ""
   >&2 echo "Usage:"
-  >&2 echo "  ${0##*/} [OPTIONS] ID_OR_NAME [CMD [ARGS...]]"
-  >&2 echo ""
-  >&2 echo "ID_OR_NAME:"
-  >&2 echo "  id or name of an image or container"
+  >&2 echo "  ${0##*/} [OPTIONS] IMAGE_ID_OR_NAME [COMMAND [ARGS...]]"
   >&2 echo ""
   >&2 echo "OPTIONS:"
   >&2 echo "  -i, --interactive                    Keep STDIN open even if not attached"
   >&2 echo "  -t, --tty                            Allocate a pseudo-TTY"
   >&2 echo ""
+  >&2 echo "  -w, --writeable                      Mount as writable"
+  >&2 echo ""
   >&2 echo "Note:"
   >&2 echo "  - If no any argument specified, it will run an interactive /bin/bash (implies '-i' and '-t')."
+  >&2 echo "  - You can pass extra docker run option via env var DOCKER_GEEK_OPTION"
   >&2 echo ""
   exit 1
 }
 
-ID=""
+OPT_INTERACTIVE=""; OPT_TTY=""; OPT_WRITABLE="";
 
-OPT_INTERACTIVE=""; OPT_TTY=""
-
-while [[ $# -gt 0 ]]; do
+while [[ $# > 0 ]]; do
   case $1 in
   -i|--interactive)
-      OPT_INTERACTIVE=$1
-      ;;
+    OPT_INTERACTIVE=$1
+    ;;
   -t|--tty)
-      OPT_TTY=$1
-      ;;
-  --*)
-      show_usage
-      ;;
-  -*i*|-*t*)
-      [[ $1 == *i* ]] && OPT_INTERACTIVE=-i
-      [[ $1 == *t* ]] && OPT_TTY=-t
-      [[ ! $1 =~ ^-[it]+$ ]] && show_usage
-      ;;
+    OPT_TTY=$1
+    ;;
+  -w|--writable)
+    OPT_WRITABLE=$1
+    ;;
   -*)
-      show_usage
-      ;;
+    [[ ! $1 =~ ^-[itw]+$ ]] && show_usage
+    [[ $1 == *i* ]] && OPT_INTERACTIVE=-i
+    [[ $1 == *t* ]] && OPT_TTY=-t
+    [[ $1 == *w* ]] && OPT_WRITABLE=-w
+    ;;
   *)
-      ID=$1
-      shift
-      break
-      ;;
+    break
+    ;;
   esac
   shift
 done
+
+ID=${1:?${0##*/}: require next argument as an id or name of an image}; shift
 
 if [[ $# == 0 && ! $OPT_INTERACTIVE && ! $OPT_TTY ]]; then
   OPT_INTERACTIVE=-i
   OPT_TTY=-t
 fi
 
-[[ ! $ID ]] && show_usage
-
-LAYERS=($(docker-layers-of "$ID"))
-LAYERS=${LAYERS[*]}
-LAYERS=${LAYERS// /:}
+LAYERS=($(docker-layers-of "$ID")); LAYERS=${LAYERS[*]}; LAYERS=${LAYERS// /:}
 
 [[ ! $ID =~ ^[0-9a-f]{12}$ && ! $ID =~ ^[0-9a-f]{64}$ ]] && ID=$(docker inspect -f '{{.ID}}' "$ID")
 ID=${ID#sha256:}
 
 CMD=("$@"); [[ $# == 0 ]] && CMD=(bash -l)
 
-# Notes:
-# - The --hostname=GEEK is for showing hostname as an indicator of the special container.
-# - The --add-host GEEK:127.0.0.1 is for avoiding sudo from warning about host can not be resolved.
-# - The -v /var/lib/docker:/var/lib/docker:rshared is for bind-mounting across containers later
-# - The -v $DOCKER_SOCK_PATH:/var/run/docker.sock is for using docker client in the docker-geek
-# - The -v $DOCKER_PID_PATH:/var/run/docker.pid is for getting dockerd's pid in the docker-geek
-
-if docker info | grep -F 'Operating System: Docker Desktop' >/dev/null; then
-  DOCKER_SOCK_PATH=/run/desktop/docker.sock
-  DOCKER_PID_PATH=/run/desktop/docker.pid
-else
-  DOCKER_SOCK_PATH=/var/run/docker.sock
-  DOCKER_PID_PATH=/var/run/docker.pid
-fi
-
-exec docker run --rm $OPT_INTERACTIVE $OPT_TTY \
-  --privileged --userns=host \
-  --pid=host --network=host --ipc=host \
-  --hostname=GEEK#${ID:0:12} --add-host GEEK#${ID:0:12}:127.0.0.1 \
-  -v $DOCKER_SOCK_PATH:/var/run/docker.sock \
-  -v $DOCKER_PID_PATH:/var/run/docker.pid \
-  -v /var/lib/docker:/var/lib/docker:rshared \
-  -v /:/host-rootfs \
-  osexp2000/docker-geek bash -c '
-    set -o errexit -o pipefail
-    mkdir -p /rootfs
-    if [[ $1 == *:* ]]; then
-      mount -t overlay overlay -o lowerdir="$1" /rootfs
-    else
-      mount -o bind,ro "$1" /rootfs
-    fi
-    cd /rootfs
-    shift
-    exec "$@"
-    ' \
-      -- "$LAYERS" "${CMD[@]}"
+export DOCKER_GEEK_NETWORK_NS="--network=host --hostname=GEEK-${ID:0:12} --add-host GEEK-${ID:0:12}:127.0.0.1"
+exec docker-geek $OPT_INTERACTIVE $OPT_TTY sh -c \
+    "mount-overlay $OPT_WRITABLE $LAYERS /rootfs && cd /rootfs && exec \"\$@\"" \
+      - "${CMD[@]}"

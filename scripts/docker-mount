@@ -1,90 +1,107 @@
 #!/bin/bash
 set -o errexit -o pipefail
 
+[[ ! $IS_DOCKER_GEEK ]] && ORIG_ARGS=("$@")
+
 function show_usage() {
   >&2 echo "Bind-mount a dir or file, among containers and the host."
   >&2 echo ""
   >&2 echo "Usage:"
-  >&2 echo "  ${0##*/} [OPTIONS] [CONTAINER:]SOURCE_PATH [CONTAINER:]TARGET_PATH"
+  >&2 echo "  ${0##*/} [OPTIONS] [CONTAINER:]SOURCE_PATH [CONTAINER:]MOUNT_POINT"
   >&2 echo ""
   >&2 echo "OPTIONS:"
   >&2 echo "  -r, --readonly                       Mount as read-only"
   >&2 echo ""
-  >&2 echo "CONTAINER:"
-  >&2 echo "  Source and target container id or name."
-  >&2 echo "  If not specified, it will use current container or host."
-  >&2 echo ""
-  >&2 echo "SOURCE_PATH, TARGET_PATH:"
-  >&2 echo "  Source and target mount point, can be a dir or file. Must start with /"
+  >&2 echo "Note:"
+  >&2 echo "  - [CONTAINER:]SOURCE_PATH"
+  >&2 echo "    - To mount a Windows dir or file, specify it like this: /host_mnt/c/a/dir_or_file."
+  >&2 echo "    - To mount a MacOS dir or file, specify it like this: /host_mnt/a/dir_or_file."
   >&2 echo ""
   exit 1
 }
 
-OPT_READONLY=""; SOURCE_ID=""; SOURCE_PATH=""; TARGET_ID=""; TARGET_PATH=""
+OPT_READONLY=""; SOURCE_ID=""; SOURCE_PATH=""; TARGET_ID=""; MOUNT_POINT=""
 
-while [[ $# -gt 0 ]]; do
+while [[ $# > 0 ]]; do
   case $1 in
   -r|--readonly)
-      OPT_READONLY=$1
-      ;;
+    OPT_READONLY=$1
+    ;;
   -*)
-      show_usage
-      ;;
-
-  *:/*)
-      if [[ ! $SOURCE_PATH ]]; then
-        SOURCE_PATH=${1#*:}
-        SOURCE_ID=${1%%:*}
-      elif [[ ! $TARGET_PATH ]]; then
-        TARGET_PATH=${1#*:}
-        [[ $TARGET_PATH == / ]] && { >&2 echo "${0##*/}: target mount point must not be root dir"; exit 1; }
-        TARGET_ID=${1%%:*}
-        [[ ! $TARGET_ID ]] && show_usage
-      else
-        show_usage
-      fi
-      ;;
-  /*)
-      if [[ ! $SOURCE_PATH ]]; then
-        SOURCE_PATH=$1
-      elif [[ ! $TARGET_PATH ]]; then
-        TARGET_PATH=$1
-        [[ $TARGET_PATH == / ]] && { >&2 echo "${0##*/}: target mount point must not be root dir"; exit 1; }
-      else
-        show_usage
-      fi
-      ;;
+    show_usage
+    ;;
   *)
-      show_usage
-      ;;
+    break
+    ;;
   esac
   shift
 done
 
-[[ ! $SOURCE_PATH || ! $TARGET_PATH ]] && show_usage
+SOURCE_PATH=${1:?${0##*/}: require next argument as SOURCE_PATH or CONTAINER:SOURCE_PATH}; shift
+MOUNT_POINT=${1:?${0##*/}: require next argument as MOUNT_POINT or CONTAINER:MOUNT_POINT}; shift
 
-SOURCE_ROOTFS=""; [[ $SOURCE_ID ]] && SOURCE_ROOTFS=$(docker-rootfs-of-container "$SOURCE_ID")
-TARGET_ROOTFS=""; [[ $TARGET_ID ]] && TARGET_ROOTFS=$(docker-rootfs-of-container "$TARGET_ID")
+SOURCE_ID=""
+if [[ $SOURCE_PATH == *:* ]]; then
+  SOURCE_ID=${SOURCE_PATH%%:*}
+  SOURCE_PATH=${SOURCE_PATH#*:}
+  [[ ! $SOURCE_PATH ]] && { >&2 echo "${0##*/}: the source path must not be empty."; exit 1; }
+fi
+[[ $SOURCE_ID && $SOURCE_PATH != /* ]] && { >&2 echo "${0##*/}: the source path must not be a relative path when it is for a container."; exit 1; }
 
-[[ ! $SOURCE_ROOTFS && $SOURCE_PATH != /var/lib/docker/* ]] && SOURCE_ROOTFS=/host-rootfs
-[[ ! $TARGET_ROOTFS && $TARGET_PATH != /var/lib/docker/* ]] && TARGET_ROOTFS=/host-rootfs
+TARGET_ID=""
+if [[ $MOUNT_POINT == *:* ]]; then
+  TARGET_ID=${MOUNT_POINT%%:*}
+  MOUNT_POINT=${MOUNT_POINT#*:}
+  [[ ! $MOUNT_POINT ]] && { >&2 echo "${0##*/}: the mount point must not be empty."; exit 1; }
+fi
+[[ $TARGET_ID && $MOUNT_POINT != /* ]] && { >&2 echo "${0##*/}: the mount point must not be a relative path when it is for a container."; exit 1; }
 
-# Notes:
-# - The -v /var/lib/docker:/var/lib/docker:rshared is for bind-mounting across containers later
-# - The --network=host --ipc=host --uts=host are optional, just for launching container faster
-# - The -v "$SOURCE_ROOTFS$SOURCE_PATH":/x:ro is for readonly mount
+if [[ ! $IS_DOCKER_GEEK && ! $TARGET_ID ]]; then
+  [[ $MOUNT_POINT != /* ]] && { >&2 echo "${0##*/}: when running this command from outside of docker-geek, the mount point on the host must not be a relative path."; exit 1; }
+  [[ $MOUNT_POINT != /var/lib/docker/* ]] && { >&2 echo "${0##*/}: when running this command from outside of docker-geek, the mount point on the host must not be outside of /var/lib/docker, otherwise it will have no effect to the host side."; exit 1; }
+fi
 
-COM_CMD=(exec docker run --rm \
-    --privileged --userns=host \
-    --pid=host --network=host --ipc=host --uts=host \
-    -v /var/lib/docker:/var/lib/docker:rshared \
-    -v /:/host-rootfs)
+if [[ ! $IS_DOCKER_GEEK ]]; then
+  exec docker-geek env MOUNT_SOURCE_PREFIX=/host-rootfs ${0##*/} "${ORIG_ARGS[@]}"
+fi
+
+SOURCE_ROOTFS=$MOUNT_SOURCE_PREFIX
+[[ $SOURCE_ID ]] && SOURCE_ROOTFS=$(docker-rootfs-of-container "$SOURCE_ID")
+TARGET_ROOTFS=""
+[[ $TARGET_ID ]] && TARGET_ROOTFS=$(docker-rootfs-of-container "$TARGET_ID")
+
+FULL_SOURCE_PATH=$SOURCE_ROOTFS$SOURCE_PATH
+FULL_MOUNT_POINT=$TARGET_ROOTFS$MOUNT_POINT
+
+if [[ ! -e $FULL_SOURCE_PATH ]]; then
+  >&2 echo "${0##*/}: '$FULL_SOURCE_PATH' does not exist";
+  exit 1
+fi
+
+if [[ -d $FULL_SOURCE_PATH ]]; then
+  mkdir -p "$FULL_MOUNT_POINT"
+else
+  if [[ $FULL_MOUNT_POINT == */ || -d $FULL_MOUNT_POINT ]]; then
+    >&2 echo "${0##*/}: the mount point '$FULL_MOUNT_POINT' must be a file instead of a dir because the source is a file";
+    exit 1
+  fi
+  mkdir -p "${FULL_MOUNT_POINT%/*}"
+  [[ ! -e $FULL_MOUNT_POINT ]] && touch "$FULL_MOUNT_POINT"
+  [[ ! -d $FULL_MOUNT_POINT ]];
+fi
 
 if [[ $OPT_READONLY ]]; then
-  "${COM_CMD[@]}" \
-    -v "$SOURCE_ROOTFS$SOURCE_PATH":/readonly:ro \
-    osexp2000/bind-mount /readonly "$TARGET_ROOTFS$TARGET_PATH"
+  if [[ -d $FULL_SOURCE_PATH ]]; then
+    READONLY_MOUNT_POINT=/mnt/readonly_dir
+    mkdir -p $READONLY_MOUNT_POINT
+  else
+    READONLY_MOUNT_POINT=/mnt/readonly_file
+    [[ ! -e $READONLY_MOUNT_POINT ]] && touch "$READONLY_MOUNT_POINT"
+    [[ ! -d $READONLY_MOUNT_POINT ]];
+  fi
+  mount -o bind,ro "$FULL_SOURCE_PATH" $READONLY_MOUNT_POINT
+  mount -o bind,$DOCKER_GEEK_MOUNT_OPTION $READONLY_MOUNT_POINT "$FULL_MOUNT_POINT"
+  umount $READONLY_MOUNT_POINT
 else
-  "${COM_CMD[@]}" \
-    osexp2000/bind-mount "$SOURCE_ROOTFS$SOURCE_PATH" "$TARGET_ROOTFS$TARGET_PATH"
+  exec mount -o bind,$DOCKER_GEEK_MOUNT_OPTION "$FULL_SOURCE_PATH" "$FULL_MOUNT_POINT"
 fi

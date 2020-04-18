@@ -16,19 +16,19 @@ function show_usage() {
   exit 1
 }
 
-ID=""
-
-while [[ $# -gt 0 ]]; do
+while [[ $# > 0 ]]; do
   case $1 in
   -*)
-      show_usage
-      ;;
+    show_usage
+    ;;
   *)
-      ID=$1
-      ;;
+    break
+    ;;
   esac
   shift
 done
+
+ID=$1
 
 if [[ $ID ]]; then
   PID=$(docker container inspect -f '{{.State.Pid}}' "$ID")

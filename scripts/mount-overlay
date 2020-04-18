@@ -1,0 +1,71 @@
+#!/bin/bash
+set -o errexit -o pipefail
+
+function show_usage() {
+  >&2 echo "Mount overlay filesystem (as readonly by default)."
+  >&2 echo ""
+  >&2 echo "Usage:"
+  >&2 echo "  ${0##*/} [OPTIONS] LAYERS MOUNT_POINT"
+  >&2 echo ""
+  >&2 echo "LAYERS:"
+  >&2 echo "  DIR:LOWER_DIR:MORE_LOWER_DIR..."
+  >&2 echo ""
+  >&2 echo "OPTIONS:"
+  >&2 echo "  -w, --writeable                      Mount as writable"
+  >&2 echo ""
+  exit 1
+}
+
+OPT_WRITABLE="";
+
+while [[ $# > 0 ]]; do
+  case $1 in
+  -w|--writable)
+    OPT_WRITABLE=$1
+    ;;
+  -*)
+    show_usage
+    ;;
+  *)
+    break
+    ;;
+  esac
+  shift
+done
+
+LAYERS=${1:?${0##*/}: require next argument as LAYERS, e.g., DIR:LOWER_DIR:MORE_LOWER_DIR...}; shift
+MOUNT_POINT=${1:?${0##*/}: require next argument as MOUNT_POINT}; shift
+
+while read d; do
+  [[ -d $d ]] || { >&2 echo "${0##*/}: no such dir: '$d'"; exit 1; }
+done <<< "${LAYERS//:/$'\n'}"
+
+UPPERDIR=""; WORKDIR=""
+LOWERDIR=$LAYERS
+if [[ $OPT_WRITABLE ]]; then
+  if [[ $LAYERS == *:* ]]; then
+    UPPERDIR=${LAYERS%%:*}
+    LOWERDIR=${LAYERS#*:}
+  else
+    UPPERDIR=$LAYERS
+    LOWERDIR=""
+  fi
+  WORKDIR=${UPPERDIR%/}
+  WORKDIR=${WORKDIR%/*}/work
+fi
+
+mkdir -p "$MOUNT_POINT"
+if [[ $UPPERDIR ]]; then
+  if [[ $LOWERDIR ]]; then
+    mkdir -p "$WORKDIR"
+    mount -t overlay overlay -o "upperdir=$UPPERDIR,lowerdir=$LOWERDIR,workdir=$WORKDIR" "$MOUNT_POINT"
+  else
+    mount -o bind "$UPPERDIR" "$MOUNT_POINT"
+  fi
+else
+  if [[ $LOWERDIR == *:* ]]; then
+    mount -t overlay overlay -o "lowerdir=$LOWERDIR" "$MOUNT_POINT"
+  else
+    mount -o bind,ro "$LOWERDIR" "$MOUNT_POINT"
+  fi
+fi

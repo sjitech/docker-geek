@@ -1,0 +1,15 @@
+#!/bin/bash
+set -o errexit -o pipefail
+
+mnt=$(readlink /proc/self/ns/mnt)
+while read id pid; do
+  if [[ "$(readlink /proc/$pid/ns/mnt)" == "$mnt" ]]; then
+    if [[ $1 == -l ]]; then
+      echo $id
+    else
+      echo ${id:0:12}
+    fi
+    exit 0
+  fi
+done < <(docker ps --format {{.ID}} | xargs docker container inspect --format '{{.ID}} {{.State.Pid}}')
+exit 1

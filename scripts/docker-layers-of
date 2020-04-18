@@ -2,17 +2,17 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-  >&2 echo "Show storage layers of an image or container."
+  >&2 echo "Show storage layers of an image."
   >&2 echo ""
   >&2 echo "Usage:"
-  >&2 echo "  ${0##*/} [ID_OR_NAME]"
+  >&2 echo "  ${0##*/} [IMAGE_ID_OR_NAME]"
   >&2 echo "  docker ps | ${0##*/}"
   >&2 echo ""
-  >&2 echo "ID_OR_NAME:"
-  >&2 echo "  id or name of an image or container"
+  >&2 echo "IMAGE_ID_OR_NAME:"
+  >&2 echo "  ID or name of an image"
   >&2 echo ""
   >&2 echo "Note:"
-  >&2 echo "  - If ID_OR_NAME is omitted, it reads each line from input, echo it,"
+  >&2 echo "  - If IMAGE_ID_OR_NAME is omitted, it reads each line from input, echo it,"
   >&2 echo "    grep out an 12 or 64 chars lowercase hex id, if found then process the id"
   >&2 echo "    and show each line of result with '  layer: ' prepended."
   >&2 echo "  - The layers will be displayed in order of upper -> lower."
@@ -20,19 +20,19 @@ function show_usage() {
   exit 1
 }
 
-ID=""
-
-while [[ $# -gt 0 ]]; do
+while [[ $# > 0 ]]; do
   case $1 in
   -*)
-      show_usage
-      ;;
+    show_usage
+    ;;
   *)
-      ID=$1
-      ;;
+    break
+    ;;
   esac
   shift
 done
+
+ID=$1
 
 if [[ $ID ]]; then
   exec docker inspect "$ID" --format '{{.GraphDriver.Data.UpperDir}}:{{.GraphDriver.Data.LowerDir}}' | tr ':' '\n' | grep --color=no /
