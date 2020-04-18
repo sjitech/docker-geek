@@ -6,15 +6,12 @@ function show_usage() {
   >&2 echo ""
   >&2 echo "Usage:"
   >&2 echo "  ${0##*/} [CONTAINER_ID_OR_NAME]"
+  >&2 echo "  docker ps | ${0##*/}"
   >&2 echo ""
   >&2 echo "Note:"
   >&2 echo "  - If CONTAINER_ID_OR_NAME is omitted, it reads each line from input, echo it,"
   >&2 echo "    grep out an 12 or 64 chars lowercase hex id, if found then process the id"
   >&2 echo "    and show result with '  pid: ' prepended."
-  >&2 echo ""
-  >&2 echo "Example:"
-  >&2 echo "  - ${0##*/} 17d09873c8a5"
-  >&2 echo "  - docker ps | ${0##*/}"
   >&2 echo ""
   exit 1
 }

@@ -2,13 +2,13 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-  >&2 echo "Persistently mount a image or container to /mnt/<IMAGE_LAYER_ID> as readonly"
+  >&2 echo "Persistently mount an image or container to /mnt/<IMAGE_LAYER_ID> as readonly."
   >&2 echo ""
   >&2 echo "Usage:"
   >&2 echo "  ${0##*/} ID_OR_NAME"
   >&2 echo ""
   >&2 echo "ID_OR_NAME:"
-  >&2 echo "  ID or name of an image or container"
+  >&2 echo "  id or name of an image or container"
   >&2 echo ""
   exit 1
 }
@@ -33,7 +33,7 @@ if [[ $IS_DOCKER_GEEK ]]; then
     mount -o bind,ro "$LAYERS" "$MOUNT_POINT"
   fi
 else
-  # Enter host namespace to do mount. The reason use nsenter-dockerd is that
+  # Enter the host to do mount. The reason use nsenter-dockerd is that
   # it definitely contains proper mount util and sh related stuff.
   #
   # Notes:

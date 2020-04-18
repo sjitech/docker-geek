@@ -2,7 +2,7 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-  >&2 echo "Run a privileged tool container in host's namespaces(pid,net,ipc,user)."
+  >&2 echo "Run a privileged tool container in the host's network namespace."
   >&2 echo ""
   >&2 echo "Usage:"
   >&2 echo "  ${0##*/} [OPTIONS] [CMD [ARGS...]]"
@@ -70,9 +70,6 @@ fi
 # - The -v /var/lib/docker:/var/lib/docker:rshared is for bind-mounting across containers later
 # - The -v $DOCKER_SOCK_PATH:/var/run/docker.sock is for using docker client in the docker-geek
 # - The -v $DOCKER_PID_PATH:/var/run/docker.pid is for getting dockerd's pid in the docker-geek
-
-# todo: add geek to unlimted cgroup
-# todo: support --name NAME to start a new named instance or exec in existing instance
 
 if docker info | grep -F 'Operating System: Docker Desktop' >/dev/null; then
   DOCKER_SOCK_PATH=/run/desktop/docker.sock

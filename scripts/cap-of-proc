@@ -13,7 +13,7 @@ function show_usage() {
   >&2 echo "  --CapBnd              Bound capability"
   >&2 echo "  --CapAmb              Ambient capability"
   >&2 echo ""
-  >&2 echo "      --no-sort         Show names without sort"
+  >&2 echo "  --no-sort             Show names without sort"
   >&2 echo ""
   >&2 echo "MODE:"
   >&2 echo "  -n, --value           Only show hexadecimal value instead of name"

@@ -2,7 +2,7 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-  >&2 echo "Run a command or sh on behalf of the init process."
+  >&2 echo "Run a command or sh on behalf of the host's init process."
   >&2 echo ""
   >&2 echo "Usage:"
   if [[ $IS_DOCKER_GEEK ]]; then

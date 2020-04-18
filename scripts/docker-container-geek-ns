@@ -2,8 +2,8 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-  >&2 echo "Start a docker-geek in which map a container's rootfs to /rootfs and switch to"
-  >&2 echo "net,ipc,uts namespaces of the container."
+  >&2 echo "Start a docker-geek in which map a container's rootfs to /rootfs and switch to "
+  >&2 echo "target container's network namespace."
   >&2 echo ""
   >&2 echo "Usage:"
   >&2 echo "  ${0##*/} [OPTIONS] CONTAINER_ID_OR_NAME [CMD [ARGS...]]"

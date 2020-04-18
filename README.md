@@ -8,9 +8,9 @@ sometimes it is painful to do things in a docker container or its host which doe
 
 This is exactly why `docker-geek` comes up.
 
-The basic idea is starting a tool container, 
+The basic idea is starting a tool container, then
 - mount rootfs of the container or host into the tool container
-- switch to net, ipc, uts namespaces of host or target container optionally
+- switch to network namespace of the host or target container
 
 then you can 
 - freely use tools in the tool container to manipulate target container or its host.
@@ -22,7 +22,7 @@ It also provide some extra features, although not necessary normally.
 
 ## Installation && Quick Start
 
-Let's start the workbench so from there you can further run other commands of this tool suite.
+Let's start a workbench so from there you can further run other commands of this tool suite.
 
 **You might just want to have a try without downloading this repo nor installing anything to your host**, so just run
 
@@ -39,9 +39,16 @@ docker run --rm -it \
   --workdir /host-rootfs \
   osexp2000/docker-geek
 ```
-Note: if you are using Docker desktop, please replace 
-- `/var/run/docker.sock:` to `/run/desktop/docker.sock:`
-- `/var/run/docker.pid:` to `/run/desktop/docker.pid:`
+Note: if you are using Docker desktop, please replace
+```
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /var/run/docker.pid:/var/run/docker.pid \
+```
+with 
+```
+  -v /run/desktop/docker.sock:/var/run/docker.sock ^
+  -v /run/desktop/docker.pid:/var/run/docker.pid ^
+```
 
 *For Windows Cmd:*
 ```
@@ -56,18 +63,16 @@ docker run --rm -it ^
   --workdir /host-rootfs ^
   osexp2000/docker-geek
 ```
-Then you got a workbench with workding dir pointing to rootfs of the host.
+Then you got a workbench with working dir pointing to rootfs of the host.
 ```
 root@GEEK:/host-rootfs#
 ```
 **You can use docker commands and other utilities of this tool suite there.**
 
-For Bash users who want to call these commands directly from host, just can clone this repo, 
+For Bash users who want to call these commands directly from the host, just can clone this repo, 
 and add the `scripts` dir into your PATH into your Bash settings.
 
-
 The docker image [`osexp2000/docker-geek`](Dockerfile) consists of all necessary stuff. 
-most utilities are baked into `/usr/local/bin` of the image.
 ```
 docker-geek
 docker-container-geek
@@ -95,17 +100,18 @@ docker-rootfs-of-container
 ```
 
 Note:
-- You can use docker client in this workbench and most tools of this suite.
-- You can call commands of this suite from each other.
+- You can call commands of this suite from inside of each other.
 - You can save changes made to the tool container locally with `docker commit THE_RUNNING_DOCKER_GEEK_CONTAINER_ID osexp2000/docker-image`
+- You can use docker client from inside of these tools.
 
 ## Usage
 
-### `docker-geek`: freely manipulate files and network of the host, also as a entry to this workbench 
+### `docker-geek` Run a privileged tool container in the host's network namespace
 
-This tool starts a tool container, and 
-- map host's rootfs into `/host-rootfs`
-- switch to net,ipc,uts namespaces of **host**
+This tool start a workbench in which you can freely manipulate files and network of the host.
+It starts a docker-geek workbench (a privileged container) in which it 
+- maps host's rootfs into `/host-rootfs`
+- switches to the **host**'s network namespace 
 
 You can further run other commands in this workbench.
 
@@ -121,15 +127,16 @@ root@GEEK:/host-rootfs# ip address show
 ...network info of the host...
 ```
 
-Note: more accurately, this tool enter PID 1's net,ipc,uts namespaces, it may still be different
+Note: more accurately, this tool enters the host's init process's network namespace, it may still be different
 with `dockerd`'s namespaces which pid is not 1.
 
-### `docker-container-geek`: freely manipulate files of a container
+### `docker-container-geek` Start a docker-geek in which map a container's rootfs to /rootfs
 
-This tool starts a tool container, and 
-- map target container's rootfs into `/rootfs`
-- map host's rootfs into `/host-rootfs`
-- switch to net,ipc,uts namespaces of **host**
+This tool starts a workbench in which you can freely manipulate files of a container.
+It starts a docker-geek workbench (a privileged container) in which it 
+- maps target container's rootfs into `/rootfs`
+- maps host's rootfs into `/host-rootfs`
+- switches to the **host**'s network namespace
 
 ```
 docker-container-geek [OPTIONS] CONTAINER_ID_OR_NAME [CMD [ARGS...]]
@@ -144,14 +151,13 @@ Users    bin  etc   lib       libau.so.2    media  opt   private  root  sbin    
 Volumes  dev  home  libau.so  libau.so.2.9  mnt    port  proc     run   sendtohost  sys  usr
 ```
 
-### `docker-container-geek-ns`: freely manipulate files and network of a container
+### `docker-container-geek-ns` Start a docker-geek in which map a container's rootfs to /rootfs and switch to target container's network namespace
 
-Much like `docker-container-geek`, except that it switch to namespaces of target container.
-
-This tool starts a tool container, and 
-- map target container's rootfs into `/rootfs`
-- map host's rootfs into `/host-rootfs`
-- switch to pid,net,ipc,uts namespaces of **target container**
+This tool starts a workbench in which you can freely manipulate files and network of a container.
+It starts a docker-geek workbench (a privileged container) in which it 
+- maps target container's rootfs into `/rootfs`
+- maps host's rootfs into `/host-rootfs`
+- switches to **target container**'s network namespace 
 
 ```
 docker-container-geek-ns [OPTIONS] CONTAINER_ID_OR_NAME [CMD [ARGS...]]
@@ -163,12 +169,13 @@ root@GEEK-cae89cdb65cd:/rootfs# ip address show
 ...network info of the target container...
 ```
 
-### `docker-image-geek`: view a docker image or container without run it
+### `docker-image-geek` Start a docker-geek in which mount an image or container to /rootfs as readonly
 
-This tool starts a tool container, and 
+This tool starts a workbench in which you can freely view a docker image or container without running it.
+It starts a docker-geek workbench (a privileged container) in which it 
 - mount docker image or container into `/rootfs` as **readonly** (*currently only overlay type of storage, not yet aufs or others*)
-- map host's rootfs into `/host-rootfs`
-- switch to net,ipc,uts namespaces of **host**
+- maps host's rootfs into `/host-rootfs`
+- switches to the **host**'s network namespace 
 
 ```
 docker-image-geek [OPTIONS] IMAGE_ID_OR_NAME [CMD [ARGS...]]
@@ -188,7 +195,7 @@ $ docker-image-geek nginx tar -cz bin | tar -xz -C /tmp
 ```   
 this will copy bin dir from the nginx image to /tmp/ 
 
-### `docker-strace-cmd-in-container`: run a command in strace mode in a container
+### `docker-strace-cmd-in-container` Run a program in a container and trace its syscalls
 
 Run `nsenter` to attach to target container then run specified command, trace all these processes.
 
@@ -202,7 +209,7 @@ $ docker-strace-cmd-in-container cae89cdb65cd ping -c 1 www.google.com
 ...
 ```
 
-### `docker-execsnoop`: trace command line of every new process in the host(include in containers)
+### `docker-execsnoop` Trace command line of every new process in the host(include in containers)
 
 ```
 $ docker-execsnoop [...arguments of execsnoop...]
@@ -218,7 +225,7 @@ Instrumenting sys_execve
 
 Then you use grep to filter out things of target container.
 
-### `docker-opensnoop`: trace file activities in the host(include in containers)
+### `docker-opensnoop` Trace file activities in the host(include in containers)
 
 ```
 $ docker-opensnoop [...arguments of opensnoop...]
@@ -235,10 +242,9 @@ opensnoop        17609   0x3 /etc/ld.so.cache
 
 Then you use grep to filter out things of target container.
 
-### `docker-mount` bind-mount files into a container or among container and host
+### `docker-mount` Bind-mount a dir or file, among containers and the host
 
-sometimes you forgot to configure volume mount for a container and just started the container, 
-for some reason, you might want to mount some files into it.
+Sometimes you might want to mount some files into a running container.
 
 ```
 docker-mount [OPTIONS] [CONTAINER:]SOURCE_PATH [CONTAINER:]TARGET_PATH
@@ -256,42 +262,40 @@ docker-mount CONTAINER_ID_OR_NAME:/CONTAINER_DIR /HOST_DIR
 docker-mount /HOST_DIR CONTAINER_ID_OR_NAME:/CONTAINER_DIR
 ```
 
-### `docker-mount-image`: Persistently mount a docker image or container as readonly
+### `docker-mount-image` Persistently mount an image or container to /mnt/<IMAGE_LAYER_ID> as readonly
 
 ```
-docker-mount-image ID_OR_NAME MOUNT_POINT
+docker-mount-image ID_OR_NAME
 ```
 
 ```
-$ docker-mount-image cae89cdb65cd
-root@GEEK:/host-rootfs# ls /xxx
+$ docker-mount-image busybox
+mounted at /mnt/c1682741ef4f
+root@GEEK:/host-rootfs# ls /mnt/c1682741ef4f
 bin  dev  etc  home  proc  root  sys  tmp  usr  var
 ```
 
-### `docker-mount-local-win-share`: Mount windows drive(such as C$) into host at /mnt/C$
+### `docker-mount-local-win-share` Persistently mount a local Windows share folder to /mnt/<SHARE_NAME>
 
-This is specially useful for `Docker for Windows` when it complains firewall detected, due to
-various reason, notably in a enterprise environment where every PC runs a Anti-Virus soft.
+This is specially useful for older `Docker Desktop for Windows` which complains being blocked by the firewall, due to
+various reason, notably in an enterprise environment where every PC runs an Anti-Virus soft or managed by domain policy.
+
+EDIT 2020/04/18: Latest `Docker Desktop For Windows` has no such firewall issue because it no longer use 
+Windows File Sharing protocol to share Windows files to container, so no need to use this tool normally.  
 
 ```
-docker-mount-local-win-share DRIVE_LETTER USER DOMAIN
-```
-```
-docker-mount-local-win-share C$ MY_USER MY_DOMAIN
+docker-mount-local-win-share 'C$' MY_USER MY_DOMAIN
 ... enter password ...
 mounted at /mnt/C$
 ```
 
-to unmount, `docker-geek umount /mnt/C$`
+to unmount, `docker-umount /mnt/C$`
 
 For detail, see 
 - https://github.com/docker/for-win/issues/466#issuecomment-398305463
 - https://github.com/docker/for-win/issues/466#issuecomment-416682825 
 
-### `docker-mount-cifs`: Mount windows drive(such as C) into host at /mnt/C
-
-This is specially useful for `Docker for Windows` when it complains firewall detected, due to
-various reason, notably in a enterprise environment where every PC runs a Anti-Virus soft.
+### `docker-mount-cifs` Persistently mount a Windows or SAMBA shared folder to /mnt/<IP>/<SHARE_PATH>
 
 ```
 docker-mount-cifs SHARE_UNC USER DOMAIN
@@ -304,9 +308,9 @@ mounted at /mnt/192.168.1.2/share
 
 to unmount, `docker-geek umount /mnt/192.168.1.2/share` 
 
-### `docker-host`: enter the `dockerd`
+### `docker-host` Run a command or sh on behalf of the host's dockerd process
 
-enter dockerd's all namespaces.
+It enter the host's `dockerd`'s all namespaces.
 ```
 $ docker-host
 linuxkit-025000000001:/# ls
@@ -319,9 +323,9 @@ linuxkit-025000000001:/# which crictl docker mount.cifs
 /sbin/mount.cifs
 ```
 
-### `docker-host1`: enter the host
+### `docker-host1` Run a command or sh on behalf of the host's init process
 
-enter pid 1's all namespaces.
+It enter the host's init process's all namespaces.
 ```
 $ docker-host1
 linuxkit-025000000001:/# ls
@@ -329,7 +333,7 @@ EFI         boot        dev         home        lib         mnt         proc    
 bin         containers  etc         init        media       opt         root        sbin        sys         usr
 ```
 
-### `docker-layers-of`: show image layers of a container or image easily
+### `docker-layers-of` Show storage layers of an image or container
 
 ```
 $ docker-layers-of cae89cdb65cd
@@ -337,7 +341,7 @@ $ docker-layers-of cae89cdb65cd
 /var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d-init/diff
 /var/lib/docker/overlay2/80c7824a3012f56122d75283c90b85f2eb733d62889e5bbe956035d77720c554/diff
 ```
-or use it in pipe:
+or use it in a pipe:
 ```
 $ docker ps | docker-layers-of
 CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
@@ -357,13 +361,15 @@ $ docker images | docker-layers-of
 ```
 The result can be further piped to other similar commands of this tool suite. 
 
-### `docker-rootfs-of-container`: show path of rootfs of a container
+Note that the layers will be displayed in order of upper -> lower.
+
+### `docker-rootfs-of-container` Show rootfs of a container
 
 ```
 $ docker-rootfs-of-container cae89cdb65cd
 /var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d/merged
 ```
-or use it in pipe:
+or use it in a pipe:
 ```
 $ docker ps | docker-rootfs-of-container
 CONTAINER ID        IMAGE
@@ -374,13 +380,13 @@ cae89cdb65cd        ...
 ```
 The result can be further piped to other similar commands of this tool suite. 
 
-### `docker-pid-of-container`: show init process id of a container
+### `docker-pid-of-container` Show init process id of a container
 
 ```
 $ docker-pid-of-container cae89cdb65cd
 2788
 ```
-or use it in pipe:
+or use it in a pipe:
 ```
 $ docker ps | docker-pid-of-container
 CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
@@ -391,7 +397,7 @@ cae89cdb65cd        ...
 ```
 The result can be further piped to other similar commands of this tool suite. 
 
-### `docker-cap-of-container`: show process capabilities of a container
+### `docker-cap-of-container` Show capability of the init process of a container
 
 ```
 $ docker-cap-of-container cae89cdb65cd
@@ -414,7 +420,7 @@ $ docker-cap-of-container cae89cdb65cd -f
 $ docker-cap-of-container cae89cdb65cd -n
 00000000a80425fb
 ```
-or use it in pipe:
+or use it in a pipe:
 ```
 $ docker ps | docker-cap-of-container
 CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
@@ -480,7 +486,7 @@ root@GEEK diff -r /proc/8888/root/PATH_IN_CONTAINER /proc/7777/root/PATH_IN_CONT
 ### How to compare files in two docker images
 
 The simplest way to finish this is run the images but let it do nothing,
-then go to [How to compare two container]()
+then go to [How to compare two containers]()
 
 ```
 $ docker run -d DOCKER_IMAGE1 sleep 1234567890
@@ -489,10 +495,4 @@ $ docker run -d DOCKER_IMAGE2 sleep 1234567890
 7777
 ```
 
-Another way is use `docker-image-geek` to mount image into dir and compare.
-
-## todo
-
-- How to show errno of syscall when use perf-tools
-- How to show target socket address when use `perf trace`
-- How to install utilities such as sysdig which depends on host's kernel version?
+Another way is use `docker-mount-image` to mount images into dirs then compare.

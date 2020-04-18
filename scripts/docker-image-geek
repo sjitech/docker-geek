@@ -2,13 +2,13 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-  >&2 echo "Start a docker-geek in which mount an image or container to /rootfs as readonly"
+  >&2 echo "Start a docker-geek in which mount an image or container to /rootfs as readonly."
   >&2 echo ""
   >&2 echo "Usage:"
   >&2 echo "  ${0##*/} [OPTIONS] ID_OR_NAME [CMD [ARGS...]]"
   >&2 echo ""
   >&2 echo "ID_OR_NAME:"
-  >&2 echo "  ID or name of an image or container"
+  >&2 echo "  id or name of an image or container"
   >&2 echo ""
   >&2 echo "OPTIONS:"
   >&2 echo "  -i, --interactive                    Keep STDIN open even if not attached"

@@ -2,7 +2,7 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-  >&2 echo "Bind-mount a dir or file, among containers and host"
+  >&2 echo "Bind-mount a dir or file, among containers and the host."
   >&2 echo ""
   >&2 echo "Usage:"
   >&2 echo "  ${0##*/} [OPTIONS] [CONTAINER:]SOURCE_PATH [CONTAINER:]TARGET_PATH"
@@ -62,12 +62,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ ! $SOURCE_PATH || ! $TARGET_PATH ]] && show_usage
-
-# todo: get current container if ID is not specified
-# todo: call bind-mount directly when in host
-# todo: check in docker-geek
-
-#[[ -f /usr/local/bin/bind-mount ]]
 
 SOURCE_ROOTFS=""; [[ $SOURCE_ID ]] && SOURCE_ROOTFS=$(docker-rootfs-of-container "$SOURCE_ID")
 TARGET_ROOTFS=""; [[ $TARGET_ID ]] && TARGET_ROOTFS=$(docker-rootfs-of-container "$TARGET_ID")

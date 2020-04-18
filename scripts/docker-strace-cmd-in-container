@@ -44,8 +44,6 @@ done
 
 PID=$(docker-pid-of-container "$ID")
 
-# todo: drop capabilities
-
 [[ $IS_DOCKER_GEEK ]] && exec strace "${OPTS[@]}" -f nsenter --target=$PID --all -- "$@"
 
 # Notes:

@@ -2,7 +2,7 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-  >&2 echo "Persistently mount a local Windows share to /mnt/<SHARE_NAME>"
+  >&2 echo "Persistently mount a local Windows share folder to /mnt/<SHARE_NAME>."
   >&2 echo ""
   >&2 echo "Usage:"
   >&2 echo "  ${0##*/} SHARE_NAME USER DOMAIN"
@@ -27,7 +27,7 @@ if [[ $IS_DOCKER_GEEK ]]; then
   [[ ! $ip ]] && { >&2 echo "can not resolve host.docker.internal"; exit 1; }
   mount -t cifs "//$ip/$1" "$MOUNT_POINT" -o user="$2",dom="$3"
 else
-  # Enter host namespace to do mount. The reason use nsenter-dockerd is that
+  # Enter the host to do mount. The reason use nsenter-dockerd is that
   # it definitely contains proper mount util and sh related stuff.
   #
   # Notes:

@@ -8,7 +8,7 @@ function show_usage() {
   >&2 echo "  ${0##*/} [OPTIONS] HEX_CAP"
   >&2 echo ""
   >&2 echo "OPTIONS:"
-  >&2 echo "      --no-sort         Show names without sort"
+  >&2 echo "  --no-sort             Show names without sort"
   >&2 echo ""
   >&2 echo "Note:"
   >&2 echo "  - By default, it output sorted names in multiline."

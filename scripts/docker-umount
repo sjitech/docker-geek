@@ -2,7 +2,7 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-  >&2 echo "Unmount a dir in host or a running container."
+  >&2 echo "Unmount a dir or file in the host or a running container."
   >&2 echo ""
   >&2 echo "Usage:"
   >&2 echo "  ${0##*/} MOUNT_POINT"
@@ -10,7 +10,7 @@ function show_usage() {
   >&2 echo "  ${0##*/} CONTAINER_ID_OR_NAME:MOUNT_POINT"
   >&2 echo ""
   >&2 echo "MOUNT_POINT:"
-  >&2 echo "  The mounted dir"
+  >&2 echo "  The mounted dir or file"
   >&2 echo ""
   exit 1
 }
@@ -34,14 +34,11 @@ ROOTFS=""; [[ $ID ]] && ROOTFS=$(docker-rootfs-of-container "$ID")
 
 [[ $IS_DOCKER_GEEK ]] && exec umount --recursive "$ROOTFS$MOUNT_POINT"
 
-# Enter host namespace to do umount. The reason use nsenter-dockerd is that
+# Enter the host's namespace to do umount. The reason use nsenter-dockerd is that
 # it definitely contains proper umount util.
 #
 # Notes:
 # - The --network=host --ipc=host --uts=host are optional, just for launching container faster
-
-#todo -1 just umount one time, otherwise repeat umount until failure,
-#todo support --all
 
 exec docker run --rm \
   --privileged --userns=host \
