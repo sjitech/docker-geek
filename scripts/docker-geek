@@ -6,6 +6,7 @@ function show_usage() {
   >&2 echo ""
   >&2 echo "Usage:"
   >&2 echo "  ${0##*/} [OPTIONS] [CMD [ARGS...]]"
+  >&2 echo "  ${0##*/} --update"
   >&2 echo ""
   >&2 echo "OPTIONS:"
   >&2 echo "  -i, --interactive                    Keep STDIN open even if not attached"
@@ -16,6 +17,19 @@ function show_usage() {
   >&2 echo ""
   exit 1
 }
+
+if [[ $1 == --update ]]; then
+  set -x # show command trace
+  docker pull docker4w/nsenter-dockerd
+  docker pull osexp2000/bind-mount
+  docker pull osexp2000/nsenter
+  docker pull osexp2000/docker-geek
+
+  cd "$(dirname $(which docker-geek))"
+  git fetch
+  git reset --hard origin/master
+  exit
+fi
 
 OPT_INTERACTIVE=""; OPT_TTY=""
 
