@@ -58,9 +58,9 @@ LAYERS=($(docker-layers-of "$ID")); LAYERS=${LAYERS[*]}; LAYERS=${LAYERS// /:}
 [[ ! $ID =~ ^[0-9a-f]{12}$ && ! $ID =~ ^[0-9a-f]{64}$ ]] && ID=$(docker inspect -f '{{.ID}}' "$ID")
 ID=${ID#sha256:}
 
-CMD=("$@"); [[ $# == 0 ]] && CMD=(bash -l)
+[[ $# == 0 ]] && set -- bash -l
 
 export DOCKER_GEEK_NETWORK_NS="--network=host --hostname=GEEK-${ID:0:12} --add-host GEEK-${ID:0:12}:127.0.0.1"
 exec docker-geek $OPT_INTERACTIVE $OPT_TTY sh -c \
     "mount-overlay $OPT_WRITABLE $LAYERS /rootfs && cd /rootfs && exec \"\$@\"" \
-      - "${CMD[@]}"
+      -- "$@"
