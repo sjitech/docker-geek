@@ -8,14 +8,12 @@ function show_usage() {
   >&2 echo "  ${0##*/} [IMAGE_ID_OR_NAME]"
   >&2 echo "  docker ps | ${0##*/}"
   >&2 echo ""
-  >&2 echo "IMAGE_ID_OR_NAME:"
-  >&2 echo "  ID or name of an image"
-  >&2 echo ""
   >&2 echo "Note:"
   >&2 echo "  - If IMAGE_ID_OR_NAME is omitted, it reads each line from input, echo it,"
   >&2 echo "    grep out an 12 or 64 chars lowercase hex id, if found then process the id"
   >&2 echo "    and show each line of result with '  layer: ' prepended."
   >&2 echo "  - The layers will be displayed in order of upper -> lower."
+  >&2 echo "  - You can specify an container's id or name as IMAGE_ID_OR_NAME."
   >&2 echo ""
   exit 1
 }

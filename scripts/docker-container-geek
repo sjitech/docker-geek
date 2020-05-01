@@ -2,7 +2,7 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-  >&2 echo "Start a docker-geek in which mount a container to /rootfs."
+  >&2 echo "Start a docker-geek in which mount a container to /rootfs and switch to its network namespace."
   >&2 echo ""
   >&2 echo "Usage:"
   >&2 echo "  ${0##*/} [OPTIONS] CONTAINER_ID_OR_NAME [COMMAND [ARGS...]]"
@@ -47,17 +47,18 @@ if [[ $# == 0 && ! $OPT_INTERACTIVE && ! $OPT_TTY ]]; then
   OPT_TTY=-t
 fi
 
-PID=$(docker-pid-of-container "$ID")
+if ! PID=$(docker-pid-of-container "$ID"); then
+  exec docker-image-geek $OPT_INTERACTIVE $OPT_TTY "$ID" "$@"
+fi
 
 ROOTFS=$(docker-rootfs-of-container "$ID")
 
 [[ ! $ID =~ ^[0-9a-f]{12}$ && ! $ID =~ ^[0-9a-f]{64}$ ]] && ID=$(docker container inspect -f '{{.ID}}' "$ID")
 
-# Notes:
-# - The --add-host GEEK:127.0.0.1 is for avoiding sudo from warning about host can not be resolved.
-# - The /rootfs/etc/resolv.conf /rootfs/etc/hostname /rootfs/etc/hosts will be empty files.
-#   To also see above files, use docker-container-geek-ns which enter network namespace of target container.
+[[ $# == 0 ]] && set -- bash -l
 
-export DOCKER_GEEK_NETWORK_NS="--network=host --hostname=GEEK-${ID:0:12} --add-host GEEK-${ID:0:12}:127.0.0.1"
-export DOCKER_GEEK_OPTION="$DOCKER_GEEK_OPTION -v $ROOTFS:/rootfs --workdir=/rootfs"
-exec docker-geek $OPT_INTERACTIVE $OPT_TTY "$@"
+export DOCKER_GEEK_NETWORK_OPTION="--network=container:$ID"
+export DOCKER_GEEK_OPTION="$DOCKER_GEEK_OPTION -v $ROOTFS:/rootfs.no_sub_mounts"
+exec docker-geek $OPT_INTERACTIVE $OPT_TTY sh -c \
+  "ln -s /proc/$PID/root /rootfs && cd /rootfs && exec \"\$@\"" \
+    -- "$@"

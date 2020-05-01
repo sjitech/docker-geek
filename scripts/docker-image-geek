@@ -16,6 +16,7 @@ function show_usage() {
   >&2 echo "Note:"
   >&2 echo "  - If no any argument specified, it will run an interactive /bin/bash (implies '-i' and '-t')."
   >&2 echo "  - You can pass extra docker run option via env var DOCKER_GEEK_OPTION"
+  >&2 echo "  - You can specify an container's id or name as IMAGE_ID_OR_NAME."
   >&2 echo ""
   exit 1
 }
@@ -60,7 +61,7 @@ ID=${ID#sha256:}
 
 [[ $# == 0 ]] && set -- bash -l
 
-export DOCKER_GEEK_NETWORK_NS="--network=host --hostname=GEEK-${ID:0:12} --add-host GEEK-${ID:0:12}:127.0.0.1"
+export DOCKER_GEEK_NETWORK_OPTION="--network=host --hostname=GEEK-${ID:0:12} --add-host GEEK-${ID:0:12}:127.0.0.1"
 exec docker-geek $OPT_INTERACTIVE $OPT_TTY sh -c \
-    "mount-overlay $OPT_WRITABLE $LAYERS /rootfs && cd /rootfs && exec \"\$@\"" \
-      -- "$@"
+  "mount-overlay $OPT_WRITABLE $LAYERS /rootfs && cd /rootfs && exec \"\$@\"" \
+    -- "$@"

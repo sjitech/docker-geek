@@ -68,8 +68,8 @@ if [[ $(docker info --format '{{.Driver}}') == overlay* ]]; then
   MOUNT_OVERLAY_ROOT="-v /var/lib/docker:/var/lib/docker:rshared"
 fi
 
-if [[ ! $DOCKER_GEEK_NETWORK_NS ]]; then
-  DOCKER_GEEK_NETWORK_NS='--network=host --hostname=GEEK --add-host GEEK:127.0.0.1'
+if [[ ! $DOCKER_GEEK_NETWORK_OPTION ]]; then
+  DOCKER_GEEK_NETWORK_OPTION='--network=host --hostname=GEEK --add-host GEEK:127.0.0.1'
 fi
 
 # Notes:
@@ -82,10 +82,11 @@ fi
 
 exec docker run --rm $OPT_INTERACTIVE $OPT_TTY \
   --privileged --userns=host --pid=host --ipc=host \
-  $DOCKER_GEEK_NETWORK_NS \
+  $DOCKER_GEEK_NETWORK_OPTION \
   -v $DOCKER_SOCK_PATH:/var/run/docker.sock \
   -v $DOCKER_PID_PATH:/var/run/docker.pid \
   $MOUNT_OVERLAY_ROOT \
   -v /:/host-rootfs \
+  --workdir="/host-rootfs"  \
   $DOCKER_GEEK_OPTION \
   osexp2000/docker-geek "$@"

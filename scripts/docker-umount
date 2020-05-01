@@ -2,31 +2,42 @@
 set -o errexit -o pipefail
 
 function show_usage() {
-    >&2 echo "Unmount a dir in the host or a running container."
-    >&2 echo ""
-    >&2 echo "Usage:"
-    >&2 echo "  ${0##*/} MOUNT_POINT"
-    >&2 echo "  ${0##*/} CONTAINER_ID_OR_NAME MOUNT_POINT"
-    >&2 echo "  ${0##*/} CONTAINER_ID_OR_NAME:MOUNT_POINT"
-    >&2 echo ""
-    exit 1
+  >&2 echo "Unmount a dir in the host or a container."
+  >&2 echo ""
+  >&2 echo "Usage:"
+  >&2 echo "  ${0##*/} [OPTIONS] [CONTAINER:]MOUNT_POINT"
+  >&2 echo ""
+  >&2 echo "OPTIONS:"
+  >&2 echo "  -R, --recursive                      Recursively unmount"
+  >&2 echo ""
+  exit 1
 }
 
-[[ ! $1 || $1 == --help ]] && show_usage
+OPT_RECURSIVE=""
 
-if [[ $2 ]]; then
-    ID=$1
-    MOUNT_POINT=$2
-elif [[ $1 == *:* ]]; then
-    ID=${1%%:*}
-    MOUNT_POINT=${1#*:}
-else
-    ID=""
-    MOUNT_POINT=$1
+while [[ $# > 0 ]]; do
+  case $1 in
+  -R|--recursive)
+    OPT_RECURSIVE=$1
+    ;;
+  -*)
+    show_usage
+    ;;
+  *)
+    break
+    ;;
+  esac
+  shift
+done
+
+MOUNT_POINT=${1:?${0##*/}: require next argument as MOUNT_POINT or CONTAINER:MOUNT_POINT}; shift
+
+ID=""
+if [[ $MOUNT_POINT == *:* ]]; then
+  ID=${MOUNT_POINT%%:*}
+  MOUNT_POINT=${MOUNT_POINT#*:}
+  [[ ! $MOUNT_POINT ]] && { >&2 echo "${0##*/}: the mount point must not be empty."; exit 1; }
 fi
-
-[[ ! $MOUNT_POINT ]] && show_usage
-
 [[ $ID && $MOUNT_POINT != /* ]] && { >&2 echo "${0##*/}: the mount point must not be a relative path when it is for a container.."; exit 1; }
 
 if [[ ! $IS_DOCKER_GEEK && ! $ID ]]; then
@@ -34,10 +45,10 @@ if [[ ! $IS_DOCKER_GEEK && ! $ID ]]; then
   [[ $MOUNT_POINT != /var/lib/docker/* ]] && { >&2 echo "${0##*/}: when running this command from outside of docker-geek, the mount point on the host must not be outside of /var/lib/docker, otherwise it will have no effect to the host side."; exit 1; }
 fi
 
-ROOTFS=""; [[ $ID ]] && ROOTFS=$(docker-rootfs-of-container "$ID")
+ROOTFS=""; [[ $ID ]] && ROOTFS=$(docker container inspect -f '{{.GraphDriver.Data.MergedDir}}' "$ID")
 
 if [[ $IS_DOCKER_GEEK ]]; then
-  exec umount --recursive "$ROOTFS$MOUNT_POINT"
+  exec umount $OPT_RECURSIVE "$ROOTFS$MOUNT_POINT"
 else
-  exec docker-geek umount --recursive "$ROOTFS$MOUNT_POINT"
+  exec docker-geek umount $OPT_RECURSIVE "$ROOTFS$MOUNT_POINT"
 fi

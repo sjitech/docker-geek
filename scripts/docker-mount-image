@@ -10,6 +10,9 @@ function show_usage() {
   >&2 echo "OPTIONS:"
   >&2 echo "  -w, --writeable                      Mount as writable"
   >&2 echo ""
+  >&2 echo "Note:"
+  >&2 echo "  - You can specify an container's id or name as IMAGE_ID_OR_NAME."
+  >&2 echo ""
   exit 1
 }
 

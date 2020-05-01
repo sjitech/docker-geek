@@ -59,32 +59,18 @@ docker run --rm --interactive --tty ^
   osexp2000/docker-geek
 ```
 
-### `docker-container-geek` Start a docker-geek in which mount a container to /rootfs
-
-You can freely manipulate files of target container.
-
-```
-docker-container-geek [OPTIONS] CONTAINER_ID_OR_NAME [COMMAND [ARGS...]]
-```
-```
-$ docker-container-geek cae89cdb65cd
-root@GEEK-cae89cdb65cd:/rootfs# ls /rootfs
-bin  dev  etc  home  proc  root  sys  tmp  usr  var
-root@GEEK:/host-rootfs# ip address show
-...network info of the host...
-```
-Note: the `/etc/resolv.conf`, `/etc/hostname`, `/etc/hosts` in the `/rootfs` will be different with that in the container.
-
-### `docker-container-geek-ns` Start a docker-geek in which mount a container to /rootfs and switch to its network namespace
+### `docker-container-geek` Start a docker-geek in which mount a container to /rootfs and switch to its network namespace
 
 You can freely manipulate files and network of target container.
 
 ```
-docker-container-geek-ns [OPTIONS] CONTAINER_ID_OR_NAME [COMMAND [ARGS...]]
+docker-container-geek [OPTIONS] CONTAINER_ID_OR_NAME [COMMAND [ARGS...]]
 ```
 
 ```
-$ docker-container-geek-ns cae89cdb65cd
+$ docker-container-geek cae89cdb65cd
+root@GEEK-cae89cdb65cd:/rootfs# ls /rootfs
+...contents of the container's rootfs...
 root@GEEK-cae89cdb65cd:/rootfs# ip address show
 ...network info of target container...
 ```
@@ -99,6 +85,7 @@ docker-image-geek [OPTIONS] IMAGE_ID_OR_NAME [COMMAND [ARGS...]]
 ```
 $ docker-image-geek nginx
 root@GEEK-cd5239a0906a:/rootfs# 
+...contents of the image's rootfs...
 ```
 
 Notes:
