@@ -23,9 +23,13 @@ RUN set -x && apt-get -y update && \
   # config vim: disable swapfile creation due to it can not handle dir such as /proc/1/root/xxx
   (echo && echo "set noswapfile") >> ~/.vimrc && \
   #
-  touch /.rootfs-of-docker-geek
-
-RUN set -x && \
+  touch /.rootfs-of-docker-geek && \
+  #
+  # From here are some version specific utilities
+  #
+  # install a color cat
+  curl -fsSL https://github.com/sharkdp/bat/releases/download/v0.15.0/bat_0.15.0_amd64.deb -o bat.deb && \
+  dpkg -i bat.deb && rm bat.deb && \
   # install docker cli and docker-compose
   curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-19.03.8.tgz \
    | tar xz docker/docker && mv docker/docker /usr/bin/docker && rm -fr docker && \
@@ -34,9 +38,6 @@ RUN set -x && \
   curl -fsSL https://raw.githubusercontent.com/docker/compose/master/contrib/completion/bash/docker-compose > /etc/bash_completion.d/docker-compose && \
   # install other utils
   git clone https://github.com/brendangregg/perf-tools /tools/perf-tools
-
-#RUN set -x && \
-#  git clone https://github.com/sjitech/docker-geek /tools/docker-geek
 
 COPY . /tools/docker-geek/
 
