@@ -8,41 +8,23 @@ function show_usage() {
   >&2 echo "  ${0##*/} [OPTIONS] [COMMAND [ARGS...]]"
   >&2 echo ""
   >&2 echo "OPTIONS:"
-  if [[ ! $IS_DOCKER_GEEK ]]; then
-    >&2 echo "  -i, --interactive                    Keep STDIN open even if not attached"
-    >&2 echo "  -t, --tty                            Allocate a pseudo-TTY"
-  fi
-  >&2 echo ""
   >&2 echo "  -1                                   Enter the init process's all namespaces"
   >&2 echo ""
   >&2 echo "Note:"
-  if [[ $IS_DOCKER_GEEK ]]; then
-    >&2 echo "  - If no any argument specified, it will run an interactive /bin/sh."
-  else
-    >&2 echo "  - If no any argument specified, it will run an interactive /bin/sh (implies '-i' and '-t')."
-  fi
+  >&2 echo "  - If no any argument specified, it will run an interactive /bin/sh."
   >&2 echo ""
   exit 1
 }
 
-OPT_INTERACTIVE=""; OPT_TTY=""; OPT_PID1=""
+OPT_PID1=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-  -i|--interactive)
-    OPT_INTERACTIVE=$1
-    ;;
-  -t|--tty)
-    OPT_TTY=$1
-    ;;
   -1)
     OPT_PID1=$1
     ;;
   -*)
-    [[ ! $1 =~ ^-[it1]+$ ]] && show_usage
-    [[ $1 == *i* ]] && OPT_INTERACTIVE=-i
-    [[ $1 == *t* ]] && OPT_TTY=-t
-    [[ $1 == *1* ]] && OPT_PID1=-1
+    show_usage
     ;;
   *)
     break
@@ -52,7 +34,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $IS_DOCKER_GEEK ]]; then
-  [[ $OPT_INTERACTIVE || $OPT_TTY ]] && show_usage
   if [[ $OPT_PID1 ]]; then
     HOST_PID=1
   else
@@ -60,9 +41,5 @@ if [[ $IS_DOCKER_GEEK ]]; then
   fi
   SHELL=/bin/sh exec nsenter --target $HOST_PID --all -- "$@"
 else
-  if [[ $# == 0 && ! $OPT_INTERACTIVE && ! $OPT_TTY ]]; then
-    OPT_INTERACTIVE=-i
-    OPT_TTY=-t
-  fi
-  exec docker-geek $OPT_INTERACTIVE $OPT_TTY "${0##*/}" $OPT_PID1 "$@"
+  exec docker-geek "${0##*/}" $OPT_PID1 "$@"
 fi

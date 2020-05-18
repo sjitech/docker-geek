@@ -1,6 +1,6 @@
 #!/bin/bash
 
-[[ ! $IS_DOCKER_GEEK ]] && exec docker-geek --interactive --tty "${0##*/}" "$@"
+[[ ! $IS_DOCKER_GEEK ]] && exec docker-geek "${0##*/}" "$@"
 
 [[ -e /sys/kernel/debug/tracing ]] || mount -t debugfs debugfs /sys/kernel/debug
 exec execsnoop "$@"

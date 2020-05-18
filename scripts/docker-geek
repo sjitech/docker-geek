@@ -5,15 +5,11 @@ function show_usage() {
   >&2 echo "Run a privileged tool container in the host's network namespace."
   >&2 echo ""
   >&2 echo "Usage:"
-  >&2 echo "  ${0##*/} [OPTIONS] [COMMAND [ARGS...]]"
+  >&2 echo "  ${0##*/} [COMMAND [ARGS...]]"
   >&2 echo "  ${0##*/} --update"
   >&2 echo ""
-  >&2 echo "OPTIONS:"
-  >&2 echo "  -i, --interactive                    Keep STDIN open even if not attached"
-  >&2 echo "  -t, --tty                            Allocate a pseudo-TTY"
-  >&2 echo ""
   >&2 echo "Note:"
-  >&2 echo "  - If no any argument specified, it will run an interactive /bin/bash (implies '-i' and '-t')."
+  >&2 echo "  - If no any argument specified, it will run an interactive /bin/bash."
   >&2 echo "  - You can pass extra docker run option via env var DOCKER_GEEK_OPTION"
   >&2 echo ""
   exit 1
@@ -28,32 +24,7 @@ if [[ $1 == --update ]]; then
   exit
 fi
 
-OPT_INTERACTIVE=""; OPT_TTY=""
-
-while [[ $# > 0 ]]; do
-  case $1 in
-  -i|--interactive)
-    OPT_INTERACTIVE=$1
-    ;;
-  -t|--tty)
-    OPT_TTY=$1
-    ;;
-  -*)
-    [[ ! $1 =~ ^-[it]+$ ]] && show_usage
-    [[ $1 == *i* ]] && OPT_INTERACTIVE=-i
-    [[ $1 == *t* ]] && OPT_TTY=-t
-    ;;
-  *)
-    break
-    ;;
-  esac
-  shift
-done
-
-if [[ $# == 0 && ! $OPT_INTERACTIVE && ! $OPT_TTY ]]; then
-  OPT_INTERACTIVE=-i
-  OPT_TTY=-t
-fi
+OPT_TTY=""; [[ -t 0 ]] && OPT_TTY=--tty
 
 if [[ $(docker info --format '{{.OperatingSystem}}') == 'Docker Desktop' ]]; then
   DOCKER_SOCK_PATH=/run/desktop/docker.sock
@@ -80,7 +51,7 @@ fi
 # - The /var/lib/docker mount point will be rshared propagation type, so that new mounts
 #   inside docker-geek will be propagated to the host, hence indirectly to target container
 
-exec docker run --rm $OPT_INTERACTIVE $OPT_TTY \
+exec docker run --rm --interactive $OPT_TTY \
   --privileged --userns=host --pid=host --ipc=host \
   $DOCKER_GEEK_NETWORK_OPTION \
   -v $DOCKER_SOCK_PATH:/var/run/docker.sock \

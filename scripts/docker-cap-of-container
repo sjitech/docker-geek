@@ -53,7 +53,7 @@ if [[ $ID ]]; then
   [[ ! $IS_DOCKER_GEEK ]] && exec docker-geek cap-of-proc ${OPTS[@]} $PID
   exec cap-of-proc ${OPTS[@]} $PID
 else
-  [[ ! $IS_DOCKER_GEEK ]] && exec docker-geek --interactive ${0##*/} ${OPTS[@]}
+  [[ ! $IS_DOCKER_GEEK ]] && exec docker-geek ${0##*/} ${OPTS[@]}
   while IFS='' read -r line; do
     echo "$line"
     [[ $line =~ ^"  "[a-z]+:$ ]] && continue
