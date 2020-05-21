@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o errexit -o pipefail
+export MSYS_NO_PATHCONV=1
 
 function show_usage() {
   >&2 echo "Run a privileged tool container in the host's network namespace."
