@@ -6,14 +6,13 @@ function show_usage() {
   >&2 echo ""
   >&2 echo "Usage:"
   >&2 echo "  ${0##*/} [IMAGE_ID_OR_NAME]"
-  >&2 echo "  docker ps | ${0##*/}"
+  >&2 echo "  docker images | ${0##*/}"
   >&2 echo ""
   >&2 echo "Note:"
   >&2 echo "  - If IMAGE_ID_OR_NAME is omitted, it reads each line from input, echo it,"
   >&2 echo "    grep out an 12 or 64 chars lowercase hex id, if found then process the id"
   >&2 echo "    and show each line of result with '  layer: ' prepended."
   >&2 echo "  - The layers will be displayed in order of upper -> lower."
-  >&2 echo "  - You can specify an container's id or name as IMAGE_ID_OR_NAME."
   >&2 echo ""
   exit 1
 }
@@ -33,17 +32,16 @@ done
 ID=$1
 
 if [[ $ID ]]; then
-  exec docker inspect "$ID" --format '{{.GraphDriver.Data.UpperDir}}:{{.GraphDriver.Data.LowerDir}}' | tr ':' '\n' | grep --color=no /
+  exec docker image inspect "$ID" --format '{{.GraphDriver.Data.UpperDir}}:{{.GraphDriver.Data.LowerDir}}' | tr ':' '\n' | grep --color=no /
 else
   while IFS='' read -r line; do
     echo "$line"
-    [[ $line =~ ^"  "[a-z]+:$ ]] && continue
     ID=""
     read -a a <<<"$line"
     for x in "${a[@]}"; do
       [[ $x =~ ^[0-9a-f]{12}$ || $x =~ ^[0-9a-f]{64}$ ]] && ID=$x && break
     done
-    if [[ $ID ]] && LAYERS=$(exec 2>/dev/null && docker inspect "$ID" --format '{{.GraphDriver.Data.UpperDir}}:{{.GraphDriver.Data.LowerDir}}' | tr ':' '\n' | grep --color=no /); then
+    if [[ $ID ]] && LAYERS=$(docker image inspect "$ID" --format '{{.GraphDriver.Data.UpperDir}}:{{.GraphDriver.Data.LowerDir}}' | tr ':' '\n' | grep --color=no /); then
       for layer in $LAYERS; do
         echo "  layer: $layer"
       done

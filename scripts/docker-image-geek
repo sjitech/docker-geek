@@ -37,9 +37,9 @@ done
 
 ID=${1:?${0##*/}: require next argument as an id or name of an image}; shift
 
-LAYERS=($(docker-layers-of "$ID")); LAYERS=${LAYERS[*]}; LAYERS=${LAYERS// /:}
+LAYERS=($(docker-layers-of-image "$ID")); LAYERS=${LAYERS[*]}; LAYERS=${LAYERS// /:}
 
-[[ ! $ID =~ ^[0-9a-f]{12}$ && ! $ID =~ ^[0-9a-f]{64}$ ]] && ID=$(docker inspect -f '{{.ID}}' "$ID")
+[[ ! $ID =~ ^[0-9a-f]{12}$ && ! $ID =~ ^[0-9a-f]{64}$ ]] && ID=$(docker image inspect -f '{{.ID}}' "$ID")
 ID=${ID#sha256:}
 
 [[ $# == 0 ]] && set -- bash -l

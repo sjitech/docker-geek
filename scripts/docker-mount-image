@@ -41,7 +41,7 @@ if [[ ! $IS_DOCKER_GEEK ]]; then
   [[ $MOUNT_POINT != /var/lib/docker/* ]] && { >&2 echo "${0##*/}: when running this command from outside of docker-geek, the mount point on the host must not be outside of /var/lib/docker, otherwise it will have no effect to the host side."; exit 1; }
 fi
 
-LAYERS=($(docker-layers-of "$ID")); LAYERS=${LAYERS[*]}; LAYERS=${LAYERS// /:}
+LAYERS=($(docker-layers-of-image "$ID")); LAYERS=${LAYERS[*]}; LAYERS=${LAYERS// /:}
 
 if [[ $IS_DOCKER_GEEK ]]; then
   exec mount-overlay $OPT_WRITABLE "$LAYERS" "$MOUNT_POINT"

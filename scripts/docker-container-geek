@@ -28,18 +28,28 @@ done
 
 ID=${1:?${0##*/}: require next argument as an id or name of an container}; shift
 
-if ! PID=$(docker-pid-of-container "$ID"); then
-  exec docker-image-geek "$ID" "$@"
+if PID=$(docker-pid-of-container "$ID"); then
+  ROOTFS=$(docker-rootfs-of-container "$ID")
+
+  [[ ! $ID =~ ^[0-9a-f]{12}$ && ! $ID =~ ^[0-9a-f]{64}$ ]] && ID=$(docker container inspect -f '{{.ID}}' "$ID")
+
+  [[ $# == 0 ]] && set -- bash -l
+
+  export DOCKER_GEEK_NETWORK_OPTION="--network=container:$ID"
+  export DOCKER_GEEK_OPTION="$DOCKER_GEEK_OPTION -v $ROOTFS:/rootfs.no_sub_mounts"
+  exec docker-geek sh -c \
+    "ln -s /proc/$PID/root /rootfs && cd /rootfs && exec \"\$@\"" \
+      -- "$@"
+else
+  LAYERS=($(docker-layers-of-container "$ID")); LAYERS=${LAYERS[*]}; LAYERS=${LAYERS// /:}
+
+  [[ ! $ID =~ ^[0-9a-f]{12}$ && ! $ID =~ ^[0-9a-f]{64}$ ]] && ID=$(docker container inspect -f '{{.ID}}' "$ID")
+  ID=${ID#sha256:}
+
+  [[ $# == 0 ]] && set -- bash -l
+
+  export DOCKER_GEEK_NETWORK_OPTION="--network=host --hostname=GEEK-${ID:0:12} --add-host GEEK-${ID:0:12}:127.0.0.1"
+  exec docker-geek sh -c \
+    "mount-overlay $OPT_WRITABLE $LAYERS /rootfs && cd /rootfs && exec \"\$@\"" \
+      -- "$@"
 fi
-
-ROOTFS=$(docker-rootfs-of-container "$ID")
-
-[[ ! $ID =~ ^[0-9a-f]{12}$ && ! $ID =~ ^[0-9a-f]{64}$ ]] && ID=$(docker container inspect -f '{{.ID}}' "$ID")
-
-[[ $# == 0 ]] && set -- bash -l
-
-export DOCKER_GEEK_NETWORK_OPTION="--network=container:$ID"
-export DOCKER_GEEK_OPTION="$DOCKER_GEEK_OPTION -v $ROOTFS:/rootfs.no_sub_mounts"
-exec docker-geek sh -c \
-  "ln -s /proc/$PID/root /rootfs && cd /rootfs && exec \"\$@\"" \
-    -- "$@"

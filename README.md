@@ -133,17 +133,17 @@ linuxkit-025000000001:/# which crictl docker mount.cifs
 /sbin/mount.cifs
 ```
 
-### `docker-layers-of` Show storage layers of an image
+### `docker-layers-of-image`, `docker-layers-of-container` Show storage layers of an image or container
 
 ```
-$ docker-layers-of cae89cdb65cd
+$ docker-layers-of-image cae89cdb65cd
 /var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d/diff
 /var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d-init/diff
 /var/lib/docker/overlay2/80c7824a3012f56122d75283c90b85f2eb733d62889e5bbe956035d77720c554/diff
 ```
 or use it in a pipe:
 ```
-$ docker ps | docker-layers-of
+$ docker ps | docker-layers-of-container
 CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
 999999999999        nginx               ...
   layer: /var/lib/docker/overlay2/c6212d8523d5f5250b80c7c6daa29c3d57327b2e9adec345555d2d2fb404fdf1/diff
@@ -156,7 +156,7 @@ cae89cdb65cd        busybox             ...
   layer: /var/lib/docker/overlay2/a064c9b385fb9c0eb620ae321e11c38325d4f4b2166ec2fd2e661aa8a0c8049d-init/diff
   layer: /var/lib/docker/overlay2/80c7824a3012f56122d75283c90b85f2eb733d62889e5bbe956035d77720c554/diff
 
-$ docker images | docker-layers-of
+$ docker images | docker-layers-of-image
 ...
 ```
 The result can be further piped to other similar commands of this tool suite. 
